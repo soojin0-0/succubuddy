@@ -1,0 +1,609 @@
+<%@ page contentType="text/html;charset=euc-kr" %>
+<%@ page import="java.sql.*" %>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>회원가입</title>
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<style>
+	a {
+			text-decoration: none;
+		}
+	@font-face {
+        font-family: 'GmarketSansTTFMedium';
+        src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+    }
+        
+    @font-face {
+        font-family: 'GmarketSansTTFBold';
+        src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+    }
+        
+    @font-face {
+        font-family: 'GmarketSansTTFLight';
+        src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+    }
+	@font-face {
+             font-family: 'RixInooAriDuriPro';  /* 폰트 이름 지정 */
+	     src: url('fonts/RixInooAriDuri_Pro Regular.otf')  format('opentype'); /* OTF 파일은 'opentype' 지정 */
+	     font-weight: normal;
+	     font-style: normal;
+         }
+	* {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+	.title {
+		width: 100%;
+		font-family: 'GmarketSansTTFMedium';
+	}
+	.title p {
+		font-size: 34px;
+		margin-bottom: 66px;
+	}
+
+        body {
+            margin: 0;
+            width: 1920px;
+            overflow-x: hidden;
+        }
+	
+		  .navbar {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         padding: 82px 150px;
+         width: 1920px;
+         margin: 0 auto;
+         margin-bottom: 20px; /* 네비게이션 아래 여백 추가 */
+      }
+
+      .logo {
+         display: block;
+         width: 300px;
+         height: 56px;
+         margin-left: -30px;
+         margin-right: 20px;
+      }
+
+      .nav-menu {
+         display: flex;
+         align-items: center;
+         gap: 80px;
+      }
+
+      .nav-menu a {
+         text-decoration: none;
+         color: black;
+         font-size: 26px;
+         font-weight: 550;
+         font-family: 'GmarketSansTTFMedium';
+         margin-top: 12px;
+      }
+
+      .nav-icons {
+         display: flex;
+         align-items: center;
+         gap: 35px; /* 아이콘 및 로그인 간격 */
+         margin-top: 10px; /* 아이콘과 로그인 위치 조정 */
+         margin-left: 33px;
+      }
+
+      /* 아이콘 크기 조정 */
+      .nav-icons img {
+         width: 40px;
+         height: 40px;
+      }
+
+      /* 로그아웃 링크 스타일 */
+      .nav-login {
+         text-decoration: none;
+         font-size: 24px;
+         font-family: 'GmarketSansTTFMedium';
+         color: black;
+         margin-top:10px;
+      }
+
+
+      /* 로그인 링크 스타일 */
+      .nav-login {
+         text-decoration: none;
+         font-size: 24px;
+         font-family: 'GmarketSansTTFMedium';
+         color: black;
+         margin-top:10px;
+      }
+
+  
+        p {
+            font-family: 'GmarketSansTTFLight';
+        }
+
+        h2 {
+            font-family: 'GmarketSansTTFBold';
+        }
+
+        h6 {
+            font-family: 'GmarketSansTTFMedium';
+        }
+
+		/*푸터*/
+       .footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 1920px;
+            height: 283px;
+            padding: 0 150px; /* 왼쪽과 오른쪽 패딩 조정 */
+            background-color: #60af46;
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .footer-left {
+            font-size: 50px;
+            font-family: 'RixInooAriDuriPro'; /* Medium font 적용 */
+            margin-left: 50px;
+            color: #ffffff;
+        }
+
+        .footer-right {
+            font-size: 18px;
+            color: #ffffff;
+            margin-left: 130px;
+            font-family: 'GmarketSansTTFLight'; /* Light font 적용 */
+        }
+
+        .footer-right span {
+            margin-bottom: 10px;
+        }
+
+        .footer-right a {
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+	/* 테이블 설정 */
+	.join {
+		font-size: 24px;
+		border-collapse: collapse; /* 테두리 겹침 방지 */
+		font-family: 'GmarketSansTTFMedium';
+	}
+	.join th {
+		width: 300px;
+		height: 126px;
+		padding-left: 60px;
+		text-align: left;
+		color: #fff;
+		font-weight: normal;
+		background-color: #7ab863;
+	}
+	.join td {
+		width: 946px;
+	}
+	.join th, td {
+		border-top: 1px solid #000;
+	}
+
+	/* input 설정 */
+	.join-input, .check, .post-input, .address-search, .address-input, .call1, .call, .cell1, .cell, .email, #domain, .year, .month, .day {
+		height: 72px;
+		padding: 20px;
+		background-color: #f5f5f5;
+		border: none;
+		border-radius: 4px;
+		font-size: 24px;
+		font-family: 'GmarketSansTTFMedium';
+	}
+	.join-input {
+		width: 572px;
+		margin-left: 68px;
+	}
+	.check {
+		width: 160px;
+		margin-left: 32px;
+		cursor: pointer;
+	}
+	/* 주소 */
+	.post-input {
+		width: 354px;
+		margin-top: 32px;
+		margin-left: 68px;
+	}
+	.address-search {
+		width: 160px;
+		margin-top: 22px;
+		margin-left: 32px;
+		cursor: pointer;
+	}
+	.address-input {
+		width: 684px;
+		margin-top: 22px;
+		margin-left: 68px;
+	}
+	/* 전화 */
+	.call1, .call, .cell1, .cell {
+		width: 154px;
+		margin-right: 28px;
+	}
+	.call1 {
+		margin-left: 68px;
+	}
+	.call {
+		margin-left: 28px;
+	}
+	.cell1 {
+		margin-left: 68px;
+	}
+	.cell {
+		margin-left: 28px;
+	}
+	/* 이메일 */
+	.email {
+		width: 346px;
+		margin-left: 68px;
+		margin-right: 28px;
+	}
+	#domain {
+		width: 310px;
+		margin-left: 28px;
+	}
+	/* 성별 */
+	.gender-input {
+		width: 26px;
+		height: 26px;
+		margin-left: 68px;
+		margin-right: 22px;
+		appearance: none; /* 기본 radio 버튼 모양 제거 */
+		-webkit-appearance: none; /* Safari, Chrome에서의 radio 버튼 모양 제거 */
+		border: 1px solid transparent; /* 테두리 없애기 */
+		border-radius: 50%; /* 원형으로 만들기 */
+		background-color: #f5f5f5; /* 배경색 설정 */
+		position: relative;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+	}
+	.gender-input:checked::after {
+		content: '';
+		position: absolute;
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		background-color: #7ab863; /* 체크된 상태에서 안의 동그라미 색 */
+	}
+	/* 생년월일 */
+	.year {
+		width: 222px;
+		margin-left: 68px;
+		margin-right: 22px;
+	}
+	.month {
+		width: 126px;
+		margin-left: 38px;
+		margin-right: 22px;
+	}
+	.day {
+		width: 126px;
+		margin-left: 40px;
+		margin-right: 22px;
+	}
+	/* 회원가입, 취소 */
+	.end {
+		width: 100%;
+		margin-top: 116px;
+	}
+	#ok, #reset {
+		width: 244px;
+		height: 60px;
+		font-size: 24px;
+		border-radius: 8px;
+		margin-bottom: 200px;
+		cursor: pointer;
+		font-family: 'GmarketSansTTFMedium';
+	}
+	#ok {
+		background-color: #7ab863;
+		color: #fff;
+		border: none;
+	}
+	#reset {
+		background-color: #fff;
+		color: #7ab863;
+		border: 1px solid #7ab863;
+		margin-left: 60px;
+	}
+</style>
+<script language="javascript">
+function checkID()
+{
+	var id = newMem.id.value;
+
+    if (id  == "")
+    {
+		alert("[ID를 입력해 주세요]"); 
+		newMem.id.focus(); 
+		return; 
+    }
+
+	window.open("checkID.jsp?id="+id,"win", "width=255, height=145, scrollbars=no, resizable=no");
+}
+
+function checkValue()
+{                                           
+	if(document.newMem.id.value == "")
+    {
+		alert("[ID를 입력해 주세요]");
+		document.newMem.id.focus();
+		return;
+    }
+
+	if(document.newMem.name.value == "") 
+    {
+		alert("[성명을 입력해 주세요]");
+		document.newMem.name.focus();
+		return;
+    }
+
+    if(document.newMem.password.value == "") 
+    {
+		alert("[비밀번호를 입력해 주세요]");
+		document.newMem.password.focus();
+		return;
+    }
+
+	if(document.newMem.pswd_check.value == "") 
+    {
+		alert("[비밀번호를 확인해 주세요]");
+		document.newMem.pswd_check.focus();
+		return;
+    }
+
+	if(document.newMem.password.value !== document.newMem.pswd_check.value) {
+    alert("[비밀번호가 일치하지 않습니다]");
+    document.newMem.password.focus();
+    return;
+}
+
+	if(document.newMem.postcode.value == "") 
+    {
+		alert("[우편번호를 입력해 주세요] - (주소검색 버튼 클릭)");
+		document.newMem.post.focus();
+		return;
+    }
+
+	if(document.newMem.address1.value == "") 
+    {
+		alert("[도로명을 입력해 주세요] - (주소검색 버튼 클릭)");
+		document.newMem.address1.focus();
+		return;
+    }
+
+    if(document.newMem.address2.value == "") 
+    {
+		alert("[상세주소를 입력해 주세요]");
+		document.newMem.address2.focus();
+		return;
+    }
+
+	if(document.newMem.cell2.value == "") 
+    {
+		alert("[휴대전화 중간자리를 입력해 주세요]");
+		document.newMem.cell2.focus();
+		return;
+    }
+
+	if(document.newMem.cell3.value == "") 
+    {
+		alert("[휴대전화 뒷자리를 입력해 주세요]");
+		document.newMem.cell3.focus();
+		return;
+    }
+
+    if(document.newMem.day.value == "") 
+    {
+		alert("[태어난 날짜를 입력해 주세요]");
+		document.newMem.day.focus();
+		return;
+    }
+
+    document.newMem.submit();
+}
+</script>
+</head>
+<body>
+
+	<header class="navbar">
+      <a href="main.jsp">
+      <img src="images/logo.png" alt="SuccuBuddy Logo" class="logo">
+      </a>
+      <nav class="nav-menu">
+         <a href="sub1.jsp">다육 세트</a>
+         <a href="sub2.jsp">다육 단품</a>
+         <a href="sub3.jsp">맞춤 다육 추천</a>
+         <a href="sub4.jsp">다육 탐구 생활</a>
+         <a href="sub5.jsp">고객센터</a>
+      </nav>
+      <div class="nav-icons">
+         <a href="mypage.jsp"><img src="images/Person.png" alt="사용자"></a>
+         <a href="shopping_list.jsp"><img src="images/cart.png" alt="장바구니"></a>
+         <a href="login.jsp"><img src="images/login.png" alt="로그인"></a> 
+      </div>
+   </header>
+
+
+	<center>
+	<div class="title">
+		<p><b>회원가입</b></p>
+	</div>
+
+	<form name="newMem" method="post" action="join_success.jsp">
+		<table class="join">
+		<tr>
+			<th>이름</th>
+			<td><input type="text" name="name" class="join-input"></td>
+		</tr>
+		<tr>
+			<th>아이디</th>
+			<td><input type="text" name="id" class="join-input">
+			<button type="button" class="check" onclick="checkID()">중복확인</button></td>
+		</tr>
+		<tr>
+			<th>비밀번호</th>
+			<td><input type="password" name="password" class="join-input"></td>
+		</tr>
+		<tr>
+			<th>비밀번호 확인</th>
+			<td><input type="password" name="pswd_check" class="join-input"> </td>
+		</tr>
+		<tr>
+			<th>주소</th>
+			<td><input type="text" id="address" name="postcode" class="post-input" placeholder="우편번호 입력">
+					<button type="button" class="address-search" onclick="searchPostalCode()">주소검색</button><br>
+				<input type="text" id="address1" name="address1" class="address-input" placeholder="도로명 입력"></br>
+				<input type="text" id="address2" name="address2" class="address-input" style="margin-bottom: 32px;" placeholder="상세주소 입력"></td>
+		</tr>
+<script>
+    function searchPostalCode() {
+        new daum.Postcode({
+            oncomplete: function(data) {
+                // 우편번호 입력
+                document.getElementById('address').value = data.zonecode;
+
+                // 도로명 주소 입력
+                document.getElementById('address1').value = data.roadAddress;
+
+                // 상세주소 입력란에 포커스 주기
+                document.getElementById('address2').focus();
+            }
+        }).open();
+    }
+</script>
+		<tr>
+			<th>전화</th>
+			<td><select name="call1" class="call1">
+				<option value="02">02</option>
+				<option value="031">031</option>
+				<option value="041">041</option>
+				<option value="054">054</option>
+				<option value="055">055</option>
+				</select>
+				 - <input type="text" name="call2" class="call"> -
+				<input type="text" name="call3" class="call">
+			</td>
+		</tr>
+		<tr>
+			<th>휴대전화</th>
+			<td><select name="cell1" class="cell1">
+				<option value="010">010</option>
+				<option value="011">011</option>
+				<option value="012">012</option>
+				<option value="013">013</option>
+				<option value="014">014</option>
+				</select>
+				 - <input type="text" name="cell2" class="cell"> -
+				<input type="text" name="cell3" class="cell">
+			</td>
+		</tr>
+		<tr>
+			<th>이메일</th>
+			<td><input type="text" name="email_name" class="email"> @ 
+				<select name="domain" id="domain" onchange="toggleCustomDomain()">
+				<option value="gmail.com">gmail.com</option>
+				<option value="naver.com">naver.com</option>
+				<option value="daum.net">daum.net</option>
+				<option value="hanmail.net">hanmail.net</option>
+				<option value="custom">직접입력</option>
+				</select>
+<script>
+function toggleCustomDomain() {
+  const domainSelect = document.getElementById("domain");
+  
+  if (domainSelect.value === "custom") {
+    domainSelect.outerHTML = '<input type="text" id="domain" name="domain" placeholder="직접입력" />';
+  } else {
+    domainSelect.outerHTML = `
+      <select id="domain" name="domain" onchange="toggleCustomDomain()">
+        <option value="gmail.com">gmail.com</option>
+        <option value="naver.com">naver.com</option>
+        <option value="daum.net">daum.net</option>
+        <option value="custom">직접입력</option>
+      </select>
+    `;
+  }
+}
+</script>
+			</td>
+		</tr>
+		<tr>
+			<th>성별</th>
+			<td><input type="radio" name="gender" class="gender-input" value="남자">남자
+				<input type="radio" name="gender" class="gender-input" value="여자">여자
+			</td>
+		</tr>
+		<tr>
+			<th style="border-bottom: 1px solid #000;">생년월일</th>
+			<td style="border-bottom: 1px solid #000;">
+			<select name="year" class="year" id="year"></select>년
+			<select name="month" class="month" id="month"></select>월
+			<input type="text" class="day" id="day" name="day">일
+<script>
+window.onload = function() {
+  // 연도 추가
+  const yearSelect = document.getElementById("year");
+  for (let i = 2025; i >= 1950; i--) {
+    const option = document.createElement("option");
+    option.value = i;
+    option.textContent = i;
+    yearSelect.appendChild(option);
+  }
+  
+  // 월 추가
+  const monthSelect = document.getElementById("month");
+  for (let i = 1; i <= 12; i++) {
+    const option = document.createElement("option");
+    option.value = i;
+    option.textContent = i;
+    monthSelect.appendChild(option);
+  }
+};
+</script>
+			</td>
+		</tr>
+		<tr>
+			<th style="border-bottom: 1px solid #000;">다육 키우기 난이도</th>
+			<td style="border-bottom: 1px solid #000;">
+				<input type="radio" name="level" class="gender-input" value="상">상
+				<input type="radio" name="level" class="gender-input" value="중">중
+				<input type="radio" name="level" class="gender-input" value="하" checked>하
+				<span style="font-size: 18px; float: right; line-height: 40px;">(사용자의 난이도에 따라 다육식물을 추천해드립니다.)</span>
+			</td>
+		</tr>
+		</table>
+		<div class="end">
+		<input type="button" id="ok" onClick="checkValue()" value="회원가입">
+		<input type="reset" id="reset" value="취  소">
+		</div>
+	</form>
+	</center>
+
+<footer class="footer">
+    <div class="footer-left">
+        <span class="brand-name">succubuddy</span>
+    </div>
+    <div class="footer-right">
+	<br>
+        <span>주소 : 충청남도 천안시 서북구 성환읍 대학로 91 | EMAIL : succubuddy@naver.com</span>
+        <span>TEL : 070-022-2026 | &copy; 2025 succubuddy. All Rights Reserved.</span>
+		<br>
+        <span><a href="footer_policy">개인정보처리방침</a> | <a href="footer_terms">이용약관</a></span>
+    </div>
+</footer>
+</body>
+</html>

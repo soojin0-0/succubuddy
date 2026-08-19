@@ -1,0 +1,306 @@
+<%@ page contentType="text/html;charset=euc-kr" session="true" %>
+<%@ page import="java.io.*, java.sql.*, java.util.*" %>
+
+<%
+	request.setCharacterEncoding("euc-kr");
+	String userId = (String) session.getAttribute("sid");
+
+	if (userId == null) {
+		out.println("<script>alert('로그인이 필요합니다.'); location.href='login.jsp';</script>");
+		return;
+	}
+
+	Connection conn = null;
+	PreparedStatement pstmt = null;
+	ResultSet rs = null;
+
+	try {
+		Class.forName("org.gjt.mm.mysql.Driver");
+		conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/succu", "multi", "abcd");
+
+		String paymentSql = "SELECT payment_amount, used_points FROM payment WHERE user_id = ? ORDER BY payment_date DESC LIMIT 1";
+		pstmt = conn.prepareStatement(paymentSql);
+		pstmt.setString(1, userId);
+		rs = pstmt.executeQuery();
+
+		int usedPoints = 0;
+		if (rs.next()) {
+			usedPoints = rs.getInt("used_points");
+		}
+
+		if (usedPoints == 0) {
+			int rewardPoints = 500;
+			String addPointSql = "INSERT INTO point (user_id, points) VALUES (?, ?) ON DUPLICATE KEY UPDATE points = points + VALUES(points)";
+			pstmt = conn.prepareStatement(addPointSql);
+			pstmt.setString(1, userId);
+			pstmt.setInt(2, rewardPoints);
+			pstmt.executeUpdate();
+			System.out.println("포인트 적립 완료: 500P");
+		} else {
+			System.out.println(" 포인트 사용 시 적립 없음");
+		}
+
+	} catch (Exception e) {
+		e.printStackTrace();
+		String err = e.getMessage();
+		if (err == null) err = "알 수 없는 오류";
+		out.println("<script>alert('포인트 처리 중 오류 발생: " + err.replace("'", "\\'") + "'); history.back();</script>");
+	} finally {
+		try { if (rs != null) rs.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+		try { if (pstmt != null) pstmt.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+		try { if (conn != null) conn.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+	}
+%>
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="EUC-KR">
+    <title>주문 완료</title>
+
+    <style>
+        @font-face {
+            font-family: 'GmarketSansTTFMedium';
+            src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFBold';
+            src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFLight';
+            src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+        }
+		@font-face {
+			font-family: 'RixInooAriDuriPro';  /* 폰트 이름 지정 */
+			src: url('fonts/RixInooAriDuri_Pro Regular.otf')  format('opentype'); /* OTF 파일은 'opentype' 지정 */
+			font-weight: normal;
+			font-style: normal;
+		}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1920px;
+            max-width: 100%; /* 화면 크기에 맞춰 자동 조정 */
+            overflow-x: hidden;
+        }
+
+		        .navbar {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 82px 150px;
+			width: 1920px;
+			margin: 0 auto;
+			margin-bottom: 20px; /* 네비게이션 아래 여백 추가 */
+		}
+
+		.logo {
+			display: block;
+			width: 300px;
+			height: 56px;
+			margin-left: -30px;
+			margin-right: 20px;
+		}
+
+		.nav-menu {
+			display: flex;
+			align-items: center;
+			gap: 80px;
+		}
+
+		.nav-menu a {
+			text-decoration: none;
+			color: black;
+			font-size: 26px;
+			font-weight: 550;
+			font-family: 'GmarketSansTTFMedium';
+			margin-top: 12px;
+		}
+
+		.nav-icons {
+			display: flex;
+			align-items: center;
+			gap: 35px; /* 아이콘 및 로그인 간격 */
+			margin-top: 10px; /* 아이콘과 로그인 위치 조정 */
+			margin-left: 33px;
+		}
+
+		/* 아이콘 크기 조정 */
+		.nav-icons img {
+			width: 40px;
+			height: 40px;
+		}
+
+		/* 로그아웃 링크 스타일 */
+		.nav-login {
+			text-decoration: none;
+			font-size: 24px;
+			font-family: 'GmarketSansTTFMedium';
+			color: black;
+			margin-top:10px;
+		}
+        .success-container {
+			margin: 200px auto;
+			margin-top: -1px;
+            padding: 30px;
+            border-radius: 10px;
+            background: white;
+            text-align: center;
+			height: 350px;
+        }
+
+        .success-icon {
+            width: 200px;
+            height: 200px;
+            margin-bottom: 35px;
+        }
+
+        .order-title {
+            font-family: 'GmarketSansTTFMedium';
+            font-size: 34px;
+            color: #333;
+            margin-bottom: 27px;
+        }
+
+        p {
+            font-size: 24px;
+            color: #333;
+			font-family: 'GmarketSansTTFMedium';
+        }
+
+        .button-group {
+            margin-top: 20px;
+        }
+
+        .button {
+			width: 200px;
+			height: 50px;
+            padding: 15px 20px;
+            font-size: 20px;
+            margin: 5px;
+			margin-top: 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-block;
+            transition: 0.3s;
+			font-family: 'GmarketSansTTFMedium';
+        }
+
+        .green-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+        }
+
+        .green-btn:hover {
+            background-color: #45a049;
+        }
+
+        .white-btn {
+            background-color: white;
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+			margin-left: 45px;
+        }
+
+        .white-btn:hover {
+            background-color: #f1f1f1;
+        }
+		/*푸터*/
+       .footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 1920px;
+            height: 283px;
+            padding: 0 150px; /* 왼쪽과 오른쪽 패딩 조정 */
+            background-color: #60af46;
+		
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .footer-left {
+            font-size: 50px;
+            font-family: 'RixInooAriDuriPro'; /* Medium font 적용 */
+            margin-left: 50px;
+			color: #ffffff;
+        }
+
+        .footer-right {
+            font-size: 18px;
+            color: #ffffff;
+            margin-left: 130px;
+            font-family: 'GmarketSansTTFLight'; /* Light font 적용 */
+        }
+
+        .footer-right span {
+            margin-bottom: 10px;
+        }
+
+        .footer-right a {
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+    </style>
+</head>
+<body>
+
+	<header class="navbar">
+		<a href="main.jsp">
+		<img src="images/logo.png" alt="SuccuBuddy Logo" class="logo">
+		</a>
+		<nav class="nav-menu">
+			<a href="sub1.jsp">다육 세트</a>
+			<a href="sub2.jsp">다육 단품</a>
+			<a href="sub3.jsp">맞춤 다육 추천</a>
+			<a href="sub4.jsp">다육 탐구 생활</a>
+			<a href="sub5.jsp">고객센터</a>
+		</nav>
+		<div class="nav-icons">
+			<a href="mypage.jsp"><img src="images/Person.png" alt="사용자"></a>
+			<a href="shopping_list.jsp"><img src="images/cart.png" alt="장바구니"></a>
+			<a href="logout.jsp"><img src="images/logout.png" alt="로그아웃"></a> 
+		</div>
+	</header>
+
+
+    <div class="success-container">
+        <img src="images/check.png" alt="체크 이미지" class="success-icon">
+        <div class="order-title">주문이 완료되었습니다</div>
+        <p>주문 내역 확인은 마이페이지 > 주문/배송 조회에서 가능합니다.</p>
+        
+        <div class="button-group">
+            <a href="mypage.jsp" class="button green-btn">마이페이지</a>
+            <a href="main.jsp" class="button white-btn">홈</a>
+        </div>
+    </div>
+
+	<footer class="footer">
+		<div class="footer-left">
+			<span class="brand-name">succubuddy</span>
+		</div>
+		<div class="footer-right">
+		<br>
+			<span>주소 : 충청남도 천안시 서북구 성환읍 대학로 91 | EMAIL : succubuddy@naver.com</span>
+			<span>TEL : 070-022-2026 | &copy; 2025 succubuddy. All Rights Reserved.</span>
+			<br>
+			<span><a href="footer_policy.jsp">개인정보처리방침</a> | <a href="footer_terms.jsp">이용약관</a></span>
+		</div>
+	</footer>
+
+</body>
+</html>

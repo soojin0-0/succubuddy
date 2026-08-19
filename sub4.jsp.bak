@@ -1,0 +1,686 @@
+<%@ page contentType="text/html; charset=euc-kr" pageEncoding="euc-kr" %>
+<%
+    int currentPage = 1;
+    int totalPage = 1;
+    int totalCount = 100;  // 실제 게시물 수로 바꿔줘
+    int pageSize = 10;
+
+    String pageParam = request.getParameter("page");
+    if (pageParam != null && !pageParam.equals("")) {
+        try {
+            currentPage = Integer.parseInt(pageParam);
+        } catch (NumberFormatException e) {
+            currentPage = 1;
+        }
+    }
+
+    totalPage = (int) Math.ceil((double) totalCount / pageSize);
+%>
+
+<html>
+<head>
+  <meta charset="euc-kr">
+  <title>다육일기</title>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=b32f0cea9b46043cd332b797ceefc593&autoload=true&libraries=services"></script>
+  <style>
+    @font-face {
+      font-family: 'GmarketSansTTFMedium';
+      src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'GmarketSansTTFBold';
+      src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'GmarketSansTTFLight';
+      src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'RixInooAriDuriPro';
+      src: url('fonts/RixInooAriDuri_Pro Regular.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      width: 1920px;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    .container {
+      width: 100%;
+    }
+    .container-title {
+      text-align: center;
+      margin: 40px 0 30px;
+      font-size: 34px;
+      font-family: 'GmarketSansTTFMedium';
+    }
+    .diary-bar {
+      background-color: #eef4ea;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 1719px;
+      height: 212px;
+      margin: 120px auto 0 auto;
+	  margin-bottom: 80px;
+      padding: 20px 130px;
+      border-radius: 50px;
+    }
+    .diary-menu {
+      display: flex;
+      gap: 30px;
+    }
+    .diary-menu-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 26px;
+      font-family: 'GmarketSansTTFMedium';
+      color: #4caf50;
+      width: 136px;
+      height: 136px;
+      justify-content: center;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .diary-menu-item img {
+      width: auto;
+      height: 55px;
+      margin-bottom: 25px;
+      transition: all 0.2s;
+    }
+    .diary-menu-item.active {
+      background-color: #60af46;
+      color: white;
+      border-radius: 20px;
+    }
+    .diary-menu-item.active img {
+      filter: brightness(0) invert(1);
+    }
+    .diary-search {
+      background-color: white;
+      border-radius: 29px;
+      padding: 5px 15px;
+      display: flex;
+      align-items: center;
+      width: 592px;
+      height: 75px;
+    }
+    .diary-search input {
+      border: none;
+      outline: none;
+      flex: 1;
+      font-size: 14px;
+      font-family: 'GmarketSansTTFLight';
+    }
+    .diary-search img {
+      width: 40px;
+      height: 40px;
+      margin-right: 30px;
+    }
+    .sort-wrapper {
+      position: relative;
+      display: flex;
+      justify-content: flex-end;
+      flex-direction: column;
+      align-items: flex-end;
+      width: 1550px;
+      margin: 60px auto 0 auto;
+    }
+    .sort-selected {
+      display: flex;
+      align-items: center;
+      font-size: 28px;
+      color: #333;
+      cursor: pointer;
+      padding: 8px 14px;
+      background-color: #fff;
+      border-radius: 8px;
+      transition: 0.2s;
+      font-family: 'GmarketSansTTFMedium';
+      margin-bottom: 76px;
+    }
+    .sort-selected:hover {
+      background-color: #f5f5f5;
+    }
+    .sort-selected .sort-arrow {
+      width: 16px;
+      height: 16px;
+      margin-left: 15px;
+    }
+    .sort-dropdown {
+      display: none;
+      flex-direction: column;
+      margin-top: 8px;
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 6px 0;
+      z-index: 10;
+      position: absolute;
+      top: 45px;
+      right: 0;
+      min-width: 100px;
+    }
+    .sort-dropdown .sort-option {
+      font-size: 28px;
+      padding: 10px 16px;
+      cursor: pointer;
+      color: #555;
+      font-family: 'GmarketSansTTFMedium';
+    }
+    .sort-dropdown .sort-option:hover {
+      background-color: #f1f6ef;
+    }
+    .sort-dropdown .sort-option.active {
+      color: #000;
+    }
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 1550px;
+      margin: 80px auto 0 auto;
+    }
+    .pagination {
+      background-color: #f2f7ef;
+      padding: 10px 20px;
+      border-radius: 43px;
+      display: flex;
+      gap: 15px;
+    }
+    .page-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      font-family: 'GmarketSansTTFMedium';
+      color: #333;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: 0.2s;
+    }
+    .page-btn.active {
+      background-color: #4caf50;
+      color: white;
+    }
+    .page-btn:hover:not(.active) {
+      background-color: #e0eed9;
+    }
+	.page-btn.disabled {
+      color: #aaa;
+      cursor: default;
+      pointer-events: none;
+    }
+    .write-btn {
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      font-size: 30px;
+      font-family: 'GmarketSansTTFBold';
+      width: 243px;
+      height: 99px;
+      border-radius: 43px;
+      cursor: pointer;
+      transition: 0.2s;
+	  margin-bottom:80px;
+    }
+    .write-btn:hover {
+      background-color: #3f9e41;
+    }
+    .diary-content {
+      width: 1550px;
+      margin: 0 auto;
+    }
+	body.pencil-mode .bottom-bar {
+		display: none !important;
+	}	
+	.sort-selected.hidden {
+	  display: none !important;
+	}
+
+	  .navbar {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 82px 150px;
+			width: 1920px;
+			margin: 0 auto;
+			margin-bottom: 20px; /* 네비게이션 아래 여백 추가 */
+		}
+
+		.logo {
+			display: block;
+			width: 300px;
+			height: 56px;
+			margin-left: -30px;
+			margin-right: 20px;
+		}
+
+		.nav-menu {
+			display: flex;
+			align-items: center;
+			gap: 80px;
+		}
+
+		.nav-menu a {
+			text-decoration: none;
+			color: black;
+			font-size: 26px;
+			font-weight: 550;
+			font-family: 'GmarketSansTTFMedium';
+			margin-top: 12px;
+		}
+
+		.nav-icons {
+			display: flex;
+			align-items: center;
+			gap: 35px; /* 아이콘 및 로그인 간격 */
+			margin-top: 10px; /* 아이콘과 로그인 위치 조정 */
+			margin-left: 33px;
+		}
+
+		/* 아이콘 크기 조정 */
+		.nav-icons img {
+			width: 40px;
+			height: 40px;
+		}
+
+		/* 로그아웃 링크 스타일 */
+		.nav-login {
+			text-decoration: none;
+			font-size: 24px;
+			font-family: 'GmarketSansTTFMedium';
+			color: black;
+			margin-top:10px;
+		}
+		.footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 1920px;
+            height: 283px;
+            padding: 0 150px; /* 왼쪽과 오른쪽 패딩 조정 */
+            background-color: #60af46;
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .footer-left {
+            font-size: 45px;
+            font-family: 'RixInooAriDuriPro'; /* Medium font 적용 */
+            margin-left: 35px;
+			color: #ffffff;
+        }
+
+        .footer-right {
+            font-size: 16px;
+            color: #ffffff;
+            margin-left: 177px;
+            font-family: 'GmarketSansTTFLight'; /* Light font 적용 */
+        }
+
+        .footer-right span {
+            margin-bottom: 10px;
+        }
+
+        .footer-right a {
+            text-decoration: none;
+            color: #ffffff;
+        }
+  </style>
+</head>
+<body>
+<header class="navbar">
+		<a href="main.jsp">
+		<img src="images/logo.png" alt="SuccuBuddy Logo" class="logo">
+		</a>
+		<nav class="nav-menu">
+			<a href="sub1.jsp">다육 세트</a>
+			<a href="sub2.jsp">다육 단품</a>
+			<a href="sub3.jsp">맞춤 다육 추천</a>
+			<a href="sub4.jsp">다육 탐구 생활</a>
+			<a href="sub5.jsp">고객센터</a>
+		</nav>
+		<div class="nav-icons">
+			<a href="mypage.jsp"><img src="images/Person.png" alt="사용자"></a>
+			<a href="shopping_list.jsp"><img src="images/cart.png" alt="장바구니"></a>
+			<a href="logout.jsp"><img src="images/logout.png" alt="로그아웃"></a> 
+		</div>
+	</header>
+
+  <div class="container">
+    <div class="container-title">다육탐구생활</div>
+    <div class="diary-bar">
+      <div class="diary-menu">
+        <div class="diary-menu-item active" data-section="idea">
+          <img src="images/idea.png" alt="키움백과">
+          <div>키움백과</div>
+        </div>
+        <div class="diary-menu-item" data-section="question">
+          <img src="images/question.png" alt="궁금톡톡">
+          <div>궁금톡톡</div>
+        </div>
+        <div class="diary-menu-item" data-section="market">
+          <img src="images/market.png" alt="나눔창고">
+          <div>나눔창고</div>
+        </div>
+        <div class="diary-menu-item" data-section="pencil">
+          <img src="images/pencil.png" alt="성장일지">
+          <div>성장일지</div>
+        </div>
+      </div>
+      <div class="diary-search">
+        <input type="text">
+        <img src="images/Search.png" alt="검색">
+      </div>
+    </div>
+    <!--<div class="sort-wrapper">
+      <div class="sort-selected" id="current-sort">
+        인기순
+        <img src="images/arrow-big.png" alt="화살포" class="sort-arrow">
+      </div>
+      <div class="sort-dropdown" id="sort-dropdown">
+        <div class="sort-option active" data-sort="popular">인기순</div>
+        <div class="sort-option" data-sort="recent">최신순</div>
+      </div>
+    </div>-->
+	<div id="diary-content" class="diary-content"></div>
+    <div class="bottom-bar">
+      <div class="pagination" id="pagination-container">
+        <%
+          // JSP 스크립틀릿으로 disabled 속성 처리
+          String prevClass = currentPage == 1 ? "page-btn disabled" : "page-btn";
+          String nextClass = currentPage == totalPage ? "page-btn disabled" : "page-btn";
+          String prevDisabled = currentPage == 1 ? "disabled" : "";
+          String nextDisabled = currentPage == totalPage ? "disabled" : "";
+        %>
+
+        <!-- 이전 버튼 -->
+        <button class="<%= prevClass %>" data-page="<%= currentPage - 1 %>" <%= prevDisabled %>>&lt;</button>
+
+        <!-- 다음 버튼 -->
+        <button class="<%= nextClass %>" data-page="<%= currentPage + 1 %>" <%= nextDisabled %>>&gt;</button>
+      </div>
+
+      <button class="write-btn" onclick="location.href='sub4_write_modify.jsp'">글쓰기</button>
+    </div>
+    <input type="hidden" id="initPage" value="<%= currentPage %>">
+    <input type="hidden" id="initTotalPage" value="<%= totalPage %>">
+  </div>
+
+  <!--  sid를 숨겨서 가져올 hidden input 추가 (꼭 <body> 안에 넣어) -->
+  <input type="hidden" id="sid" value="<%= (session.getAttribute("sid") != null) ? (String)session.getAttribute("sid") : "" %>">
+  <input type="hidden" id="initCategory" value="<%= request.getParameter("category") != null ? request.getParameter("category") : "" %>">
+<input type="hidden" id="initSubcategory" value="<%= request.getParameter("subcategory") != null ? request.getParameter("subcategory") : "" %>">
+
+<footer class="footer">
+    <div class="footer-left">
+        <span class="brand-name">succubuddy</span>
+    </div>
+    <div class="footer-right">
+	<br>
+        <span>주소 : 충청남도 천안시 서북구 성환읍 대학로 91 | EMAIL : succubuddy@naver.com</span>
+        <span>TEL : 070-022-2026 | &copy; 2025 succubuddy. All Rights Reserved.</span>
+		<br>
+        <span><a href="footer_policy">개인정보처리방침</a> | <a href="footer_terms">이용약관</a></span>
+    </div>
+</footer>
+
+<script>
+// 서버 인코딩이 EUC-KR이니까 escape로 인코딩
+function encodeEucKr(str) {
+  return escape(str).replace(/\+/g, '%2B');
+}
+
+// diary-content 안의 style 태그를 head로 이동시키는 함수
+function moveSectionStyleToHead() {
+  const tempStyles = document.querySelectorAll("#diary-content style");
+  const head = document.head;
+  tempStyles.forEach(styleTag => {
+    const cloned = styleTag.cloneNode(true);
+    head.appendChild(cloned);
+    styleTag.remove();
+  });
+}
+
+// 성장일지에서만 사용하는 이벤트 바인딩
+function rebindPencilEvents() {
+  const addBtn = document.querySelector(".category-add-btn");
+  const inputBox = document.getElementById("category-input-box");
+  const inputField = document.getElementById("new-category-name");
+  const sid = document.getElementById("sid")?.value.trim();
+
+  if (addBtn && inputBox && inputField) {
+    addBtn.addEventListener("click", () => {
+      const isVisible = inputBox.style.display === "block";
+      inputBox.style.display = isVisible ? "none" : "block";
+      if (!isVisible) inputField.focus();
+    });
+
+    inputField.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        document.querySelector(".category-input-box button")?.click();
+      }
+    });
+
+    inputField.addEventListener("blur", () => {
+      if (inputField.value.trim() === "") inputBox.style.display = "none";
+    });
+  }
+
+  const deleteBtn = document.querySelector(".category-delete-btn");
+  let deleteMode = false;
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", () => {
+      deleteMode = !deleteMode;
+      document.querySelectorAll(".cat-delete").forEach(icon => {
+        icon.style.display = deleteMode ? "inline" : "none";
+      });
+    });
+  }
+  //  이 두 줄 반드시 넣어야 함
+  bindWriteButton();
+  bindCommentManageButton();  //  글 · 댓글 관리 버튼 AJAX 이후 작동하도록
+}
+function bindWriteButton() {
+  const writeBtn = document.getElementById("write-btn");
+  if (!writeBtn) return;
+
+  writeBtn.addEventListener("click", () => {
+    fetch("diary_write.jsp")
+      .then(res => res.text())
+      .then(html => {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = html;
+
+        const newContent = tempDiv.querySelector("#diary-write-container") || tempDiv;
+
+        const diaryContent = document.getElementById("diary-content");
+        if (diaryContent) {
+          diaryContent.innerHTML = newContent.innerHTML;
+
+          const styles = tempDiv.querySelectorAll("style");
+          styles.forEach(style => {
+            document.head.appendChild(style.cloneNode(true));
+          });
+
+          if (typeof moveSectionStyleToHead === "function") moveSectionStyleToHead();
+          if (typeof rebindPencilEvents === "function") rebindPencilEvents();
+          bindWriteButton();
+        }
+      })
+      .catch(err => {
+        console.error("일기 쓰기 로딩 오류:", err);
+        alert("일기 쓰기 화면을 불러오지 못했습니다.");
+      });
+  });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  const contentBox = document.getElementById('diary-content');
+  const items = document.querySelectorAll('.diary-menu-item');
+  const paginationContainer = document.getElementById('pagination-container');
+
+  let currentSection = "idea";
+  let currentSectionName = document.getElementById("initCategory")?.value || "키움백과";
+  let currentPage = parseInt(document.getElementById("initPage")?.value || "1");
+  let totalPage = parseInt(document.getElementById("initTotalPage")?.value || "1");
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const sectionFromURL = urlParams.get('section') || 'idea';
+  currentSection = sectionFromURL;
+
+  switch (sectionFromURL) {
+    case "idea": currentSectionName = "키움백과"; break;
+    case "kiwoom": currentSectionName = "키움백과"; break;
+    case "question": currentSectionName = "궁금톡톡"; break;
+    case "market": currentSectionName = "나눔창고"; break;
+    case "pencil": currentSectionName = "성장일지"; break;
+  }
+
+  items.forEach(item => {
+    item.classList.remove('active');
+    if (item.dataset.section === sectionFromURL) {
+      item.classList.add('active');
+    }
+  });
+
+  function loadSection(section, page = 1) {
+    const categoryEncoded = encodeEucKr(currentSectionName);
+    const sidValue = document.getElementById("sid")?.value || "";
+    let path = "section_" + section + ".jsp?page=" + page + "&category=" + categoryEncoded;
+    if (section === "pencil") path += "&sid=" + encodeURIComponent(sidValue);
+
+    const bottomBar = document.querySelector('.bottom-bar');
+
+    if (["idea", "pencil", "kiwoom"].includes(section)) {
+      if (bottomBar) bottomBar.style.display = 'none';
+    } else {
+      if (bottomBar) bottomBar.style.display = 'flex';
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.overrideMimeType("text/html;charset=EUC-KR");
+    xhr.open("GET", path, true);
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = xhr.responseText;
+
+        tempDiv.querySelectorAll("style").forEach(style => {
+          document.head.appendChild(style.cloneNode(true));
+          style.remove();
+        });
+
+        contentBox.innerHTML = tempDiv.innerHTML;
+        contentBox.style.display = "block";
+        contentBox.style.minHeight = "200px";
+
+        const scripts = contentBox.querySelectorAll("script");
+        scripts.forEach(oldScript => {
+          const newScript = document.createElement("script");
+          if (oldScript.src) newScript.src = oldScript.src;
+          else newScript.textContent = oldScript.textContent;
+          document.body.appendChild(newScript);
+        });
+
+        if (section === 'pencil') {
+          document.body.classList.add('pencil-mode');
+          rebindPencilEvents();
+          bindWriteButton();
+        } else {
+          document.body.classList.remove('pencil-mode');
+        }
+
+        const totalPageInput = tempDiv.querySelector('#totalPage');
+        totalPage = totalPageInput ? parseInt(totalPageInput.value) || 1 : 1;
+        renderPagination();
+      }
+    };
+    xhr.send();
+  }
+
+  window.loadSection = loadSection;
+
+  function renderPagination() {
+    if (!paginationContainer) return;
+    paginationContainer.innerHTML = '';
+    if (!totalPage || totalPage <= 1 || currentSection === 'pencil') return;
+
+    const pageLimit = 5;
+    let startPage = Math.floor((currentPage - 1) / pageLimit) * pageLimit + 1;
+    let endPage = Math.min(startPage + pageLimit - 1, totalPage);
+
+    const prevBtn = document.createElement("button");
+    prevBtn.className = "page-btn" + (currentPage === 1 ? " disabled" : "");
+    prevBtn.textContent = "<";
+    prevBtn.dataset.page = currentPage - 1;
+    if (currentPage === 1) prevBtn.disabled = true;
+    paginationContainer.appendChild(prevBtn);
+
+    for (let i = startPage; i <= endPage; i++) {
+      const btn = document.createElement("button");
+      btn.className = "page-btn" + (i === currentPage ? " active" : "");
+      btn.textContent = i;
+      btn.dataset.page = i;
+      paginationContainer.appendChild(btn);
+    }
+
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "page-btn" + (currentPage === totalPage ? " disabled" : "");
+    nextBtn.textContent = ">";
+    nextBtn.dataset.page = currentPage + 1;
+    if (currentPage === totalPage) nextBtn.disabled = true;
+    paginationContainer.appendChild(nextBtn);
+
+    document.querySelectorAll(".page-btn").forEach(btn => {
+      btn.addEventListener("click", function () {
+        const page = parseInt(this.dataset.page);
+        if (!isNaN(page) && page >= 1 && page <= totalPage) {
+          currentPage = page;
+          loadSection(currentSection, currentPage);
+        }
+      });
+    });
+  }
+
+  items.forEach(item => {
+    item.addEventListener('click', function () {
+      const section = this.getAttribute("data-section");
+      const sectionText = this.innerText.trim();
+      if (!section || !sectionText) return;
+
+      items.forEach(el => el.classList.remove('active'));
+      this.classList.add('active');
+
+      currentSection = section;
+      currentSectionName = sectionText;
+      currentPage = 1;
+      loadSection(currentSection, currentPage);
+    });
+  });
+
+  loadSection(currentSection, currentPage);
+  renderPagination();
+});
+
+</script>
+
+</body>
+</html>

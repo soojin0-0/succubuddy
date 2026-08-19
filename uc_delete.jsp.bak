@@ -1,0 +1,26 @@
+<%@ page contentType="text/plain; charset=euc-kr" pageEncoding="euc-kr" %>
+<%
+    request.setCharacterEncoding("euc-kr");
+    String sid = (String) session.getAttribute("sid");
+    String category = request.getParameter("category");
+
+    Connection conn = null;
+    PreparedStatement ps = null;
+
+    try {
+        Class.forName("org.gjt.mm.mysql.Driver");
+        conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/succu", "multi", "abcd");
+        ps = conn.prepareStatement("DELETE FROM user_category WHERE sid = ? AND category_name = ?");
+        ps.setString(1, sid);
+        ps.setString(2, category);
+        ps.executeUpdate();
+
+        out.print("OK");
+    } catch (Exception e) {
+        e.printStackTrace();
+        out.print("ERROR");
+    } finally {
+        if (ps != null) ps.close();
+        if (conn != null) conn.close();
+    }
+%>

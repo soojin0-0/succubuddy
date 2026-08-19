@@ -1,0 +1,918 @@
+<%@ page contentType="text/html; charset=euc-kr" pageEncoding="euc-kr" %>
+<%@ page import="java.sql.*, java.text.SimpleDateFormat" %>
+<%@ page isELIgnored="true" %>
+<%! // HTML 태그 제거 함수
+public String stripHtml(String html) {
+    return html == null ? "" : html.replaceAll("<[^>]*>", "");
+}
+%>
+
+<%
+	request.setCharacterEncoding("euc-kr");
+
+	String sid = request.getParameter("sid");
+	if (sid == null) sid = (String) session.getAttribute("sid");
+
+	String profileImg = "images/user.png";
+	String username = "";
+
+	String jdbcUrl = "jdbc:mysql://localhost:3306/succu?useUnicode=true&characterEncoding=euc-kr";
+	String dbUser = "multi";
+	String dbPass = "abcd";
+
+	Connection conn = null;
+	PreparedStatement ps = null;
+	ResultSet rs = null;
+
+	java.util.List<String[]> userCategories = new java.util.ArrayList<>();
+	java.util.List<String[]> postList = new java.util.ArrayList<>();
+
+	int curPage = 1;
+	int pageSize = 10;
+	int totalCount = 0;
+	int totalPage = 1;
+	int offset = 0;
+
+	String pageParam = request.getParameter("page");
+	if (pageParam != null && pageParam.matches("\\d+")) {
+		curPage = Integer.parseInt(pageParam);
+	}
+	offset = (curPage - 1) * pageSize;
+
+	// --- 카테고리 id 파라미터 ---
+	String selectedCatId = request.getParameter("category_id");
+
+	try {
+		Class.forName("org.gjt.mm.mysql.Driver");
+		conn = DriverManager.getConnection(jdbcUrl, dbUser, dbPass);
+
+		// 사용자 프로필 정보 불러오기
+		ps = conn.prepareStatement("SELECT username, profile_img FROM user WHERE user_id = ?");
+		ps.setString(1, sid);
+		rs = ps.executeQuery();
+		if (rs.next()) {
+			String img = rs.getString("profile_img");
+			if (img != null && !img.equals("")) profileImg = img;
+			username = rs.getString("username");
+		}
+		rs.close(); ps.close();
+
+		// 카테고리 목록 불러오기
+		ps = conn.prepareStatement("SELECT category_id, category_name FROM diary_category WHERE user_id = ? ORDER BY category_id ASC");
+		ps.setString(1, sid);
+		rs = ps.executeQuery();
+		while (rs.next()) {
+			String cid = rs.getString("category_id");
+			String cname = rs.getString("category_name");
+			userCategories.add(new String[]{cid, cname});
+		}
+		rs.close(); ps.close();
+
+		// ---- 게시글 수(카테고리별) 구하기 ----
+		String countSql;
+		if (selectedCatId != null && !selectedCatId.trim().equals("")) {
+			countSql = "SELECT COUNT(*) FROM diary d JOIN diary_category c ON d.category_id = c.category_id WHERE c.category_id = ? AND c.user_id = ?";
+			ps = conn.prepareStatement(countSql);
+			ps.setString(1, selectedCatId);
+			ps.setString(2, sid);
+		} else {
+			countSql = "SELECT COUNT(*) FROM diary d JOIN diary_category c ON d.category_id = c.category_id WHERE c.user_id = ?";
+			ps = conn.prepareStatement(countSql);
+			ps.setString(1, sid);
+		}
+		rs = ps.executeQuery();
+		if (rs.next()) totalCount = rs.getInt(1);
+		rs.close(); ps.close();
+
+		totalPage = (int) Math.ceil((double) totalCount / pageSize);
+
+		// ---- 게시글 목록(카테고리별) 구하기 ----
+		String postSql;
+		if (selectedCatId != null && !selectedCatId.trim().equals("")) {
+			postSql = "SELECT d.diary_id, d.title, d.content, d.reg_date, d.image_name, d.category_id " +
+				"FROM diary d JOIN diary_category c ON d.category_id = c.category_id " +
+				"WHERE c.user_id = ? AND d.category_id = ? " +
+				"ORDER BY d.diary_id DESC LIMIT ? OFFSET ?";
+			ps = conn.prepareStatement(postSql);
+			ps.setString(1, sid);
+			ps.setString(2, selectedCatId);
+			ps.setInt(3, pageSize);
+			ps.setInt(4, offset);
+		} else {
+			postSql = "SELECT d.diary_id, d.title, d.content, d.reg_date, d.image_name, d.category_id " +
+				"FROM diary d JOIN diary_category c ON d.category_id = c.category_id " +
+				"WHERE c.user_id = ? " +
+				"ORDER BY d.diary_id DESC LIMIT ? OFFSET ?";
+			ps = conn.prepareStatement(postSql);
+			ps.setString(1, sid);
+			ps.setInt(2, pageSize);
+			ps.setInt(3, offset);
+		}
+		rs = ps.executeQuery();
+		while (rs.next()) {
+			String diaryId = rs.getString("diary_id");  //  추가
+			String title = rs.getString("title");
+			String content = rs.getString("content");
+			String date = new java.text.SimpleDateFormat("yyyy.MM.dd").format(rs.getTimestamp("reg_date"));
+			String imageName = rs.getString("image_name");
+			if (imageName != null && imageName.startsWith("/uploads/")) {
+				imageName = imageName.substring("/uploads/".length());
+			}
+			String postCatId = rs.getString("category_id");
+			postList.add(new String[]{diaryId, title, content, date, imageName, postCatId});
+		}
+		rs.close(); ps.close();
+
+		// ---- 카테고리+게시글 수 재계산 ----
+		userCategories.clear();
+		ps = conn.prepareStatement(
+			"SELECT dc.category_id, dc.category_name, " +
+			"COUNT(d.diary_id) AS cnt " +
+			"FROM diary_category dc " +
+			"LEFT JOIN diary d ON dc.category_id = d.category_id AND d.user_id = ? " +
+			"WHERE dc.user_id = ? " +
+			"GROUP BY dc.category_id, dc.category_name " +
+			"ORDER BY dc.category_id ASC"
+		);
+		ps.setString(1, sid);
+		ps.setString(2, sid);
+		rs = ps.executeQuery();
+		while (rs.next()) {
+			String cid = rs.getString("category_id");
+			String cname = rs.getString("category_name");
+			String cnt = rs.getString("cnt");
+			userCategories.add(new String[]{cid, cname, cnt});
+		}
+		rs.close(); ps.close();
+
+	} catch (Exception e) {
+		e.printStackTrace();
+		response.setContentType("text/plain; charset=euc-kr");
+		out.print("에러: " + new String(e.getMessage().getBytes("8859_1"), "euc-kr"));
+	} finally {
+		if (rs != null) try { rs.close(); } catch (Exception e) {}
+		if (ps != null) try { ps.close(); } catch (Exception e) {}
+		if (conn != null) try { conn.close(); } catch (Exception e) {}
+	}
+%>
+
+
+<!-- HTML 및 스타일은 그대로 유지 -->
+<meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+
+<style>
+	@font-face {
+		font-family: 'GmarketSansTTFMedium';
+		src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+	}
+
+	@font-face {
+		font-family: 'GmarketSansTTFBold';
+		src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+	}
+
+	@font-face {
+		font-family: 'GmarketSansTTFLight';
+		src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+	}
+
+	@font-face {
+		font-family: 'RixInooAriDuriPro';
+		src: url('fonts/RixInooAriDuri_Pro Regular.otf') format('opentype');
+		font-weight: normal;
+		font-style: normal;
+	}
+
+	.growth-wrapper {
+		width: 1500px;
+		margin: 60px auto;
+		display: flex;
+		gap: 135px;
+		font-family: 'GmarketSansTTFMedium';
+		padding-left: 0px;
+	}
+
+	.growth-left {
+		width: 320px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		font-size: 16px;
+	}
+
+	.profile-box {
+		width: 333px;
+		height: 340px;
+		border-radius: 30px;
+		background-size: cover;
+		background-position: center;
+		margin-bottom: 20px;
+	}
+
+	.profile-name {
+		font-size: 40px;
+		margin-bottom: 40px;
+		margin-top: 20px;
+	}
+
+	.profile-actions {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		margin-bottom: 10px;
+	}
+
+	.action-divider {
+		width: 1px;
+		height: 26px;
+		background-color: #000000;
+		display: inline-block;
+		margin-bottom: 5px;
+	}
+
+	.write-action, .comment-action {
+		font-size: 28px;
+		font-family: 'GmarketSansTTFLight';
+	}
+
+	.divider {
+		width: 333px;
+		border: 3px solid #eef4ea;
+		margin: 20px 0;
+	}
+
+	.category-header {
+		width: 100%;
+		display: flex;
+		justify-content: space-between;
+		font-size: 30px;
+		margin-bottom: 30px;
+		font-family: 'GmarketSansTTFMedium';
+	}
+
+	.category-manage {
+		font-size: 22px;
+		color: #666;
+		display: flex;
+		align-items: center;
+		font-family: 'GmarketSansTTFLight';
+	}
+
+	.category-divider {
+		margin: 0 4px;
+	}
+
+	.category-list {
+		width: 100%;
+		text-align: left;
+		padding-left: 10px;
+	}
+
+	.category-item {
+		margin-bottom: 10px;
+		font-size: 26px;
+		font-family: 'GmarketSansTTFLight';
+	}
+
+	.cat-delete {
+		width: 16px;
+		height: 16px;
+		margin-left: auto;
+		margin-right: 20px;
+		display: none;
+		cursor: pointer;
+		vertical-align: middle;
+		float: right;
+	}
+
+	.category-input-box {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-top: 12px;
+		padding-left: 0px;
+		padding-right: 10px;
+	}
+
+	.category-input-box input {
+		border: none;
+		border-bottom: 1px solid #888;
+		padding: 4px 6px;
+		font-size: 22px;
+		background: transparent;
+		width: 180px;
+		font-family: 'GmarketSansTTFLight';
+	}
+
+	.category-input-box input:focus {
+		outline: none;
+		border-bottom: 2px solid #4caf50;
+	}
+
+	.category-input-box button {
+		background-color: #4caf50;
+		color: white;
+		border: none;
+		padding: 4px 12px;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 20px;
+		font-family: 'GmarketSansTTFMedium';
+	}
+
+	.growth-right {
+		flex: 1;
+		margin-left: 30px;
+	}
+
+	.growth-title {
+		font-size: 34px;
+		margin-bottom: 50px;
+		text-align: center;
+	}
+	.growth-category-block {
+	  margin-bottom: 40px;
+	}
+	.growth-category-title {
+	  font-size: 28px;
+	  font-family: 'GmarketSansTTFBold';
+	  margin-bottom: 16px;
+	}
+
+	.pencil-post-box {
+		background-color: #f1f6ed; /* 연두색 배경 */
+		border-radius: 25px;
+		display: flex; /* flexbox 레이아웃 적용 */
+		align-items: center; /* 세로 중앙 정렬 */
+		padding: 20px;
+		margin-bottom: 30px;
+	}
+
+	.pencil-thumbnail {
+		width: 180px;
+		height: 180px;
+		background-color: #e5ede0;
+		border-radius: 15px;
+		margin-right: 20px; /* 이미지와 텍스트 간의 여백 */
+		background-size: cover; /* 이미지 크기 조정 */
+		background-position: center; /* 이미지 중앙 정렬 */
+	}
+
+	.pencil-post-content {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		flex: 1.5; /* 텍스트가 오른쪽으로 정렬되도록 */
+	}
+
+	.pencil-post-title {
+		font-family: 'GmarketSansTTFMedium';
+		font-size: 30px;
+		margin-bottom: 5px;
+	}
+
+	.pencil-post-text {
+		font-size: 22px;
+		color: #555;
+		margin-bottom: 5px;
+		font-family: 'GmarketSansTTFLight';
+	}
+
+	.pencil-post-date {
+		font-size: 13px;
+		color: #999;
+	}
+
+	.error-message {
+		color: red;
+		font-size: 16px;
+		text-align: center;
+	}
+	.category-item.selected { 
+		font-weight: bold; 
+		font-family: 'GmarketSansTTFMedium';
+		color: #60af46; 
+	}
+
+</style>
+
+<div class="growth-wrapper">
+    <div class="growth-left">
+        <div class="profile-box" style="background-image: url('images/user.png');"></div>
+        <div class="profile-name"><%= (username != null && !username.equals("")) ? username : "이름 없음" %></div>
+        <div class="profile-actions">
+            <span id="write-btn" class="write-action" style="cursor: pointer;">일기 쓰기</span>
+            <span class="action-divider"></span>
+            <span id="comment-manage-btn" class="comment-action"><a href="comment_manage.jsp">글 · 댓글 관리</a></span>
+        </div>
+
+        <hr class="divider">
+        <div class="category-header">
+            <span>카테고리</span>
+            <div class="category-manage">
+                <span class="category-add-btn">등록</span>
+                <span class="category-divider">/</span>
+                <span class="category-delete-btn">삭제</span>
+            </div>
+        </div>
+
+   <div class="category-list">
+		  <% if (userCategories.size() == 0) { %>
+			<div class="category-item">카테고리가 없습니다.</div>
+		  <% } else {
+			  for (String[] cat : userCategories) {
+				String catId = cat[0];
+				String catName = cat[1];
+				int count = Integer.parseInt(cat[2]);
+		  %>
+			<div class="category-item" data-id="<%= catId %>" onclick="selectCategory('<%= catId %>')">
+			  <span><%= catName %><% if (count > 0) { %> (<%= count %>)<% } %></span>
+			  <img src="images/cross.png" class="cat-delete" style="display: none;" data-id="<%= catId %>">
+			</div>
+		  <%  }
+			} %>
+
+
+
+
+            <div id="category-input-box" class="category-input-box" style="display: none;">
+                <input type="text" id="new-category-name" placeholder="카테고리 입력">
+                <button type="button" onclick="submitCategory()">저장</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="growth-right" id="growth-right">
+		<div class="growth-title">성장일지</div>
+		<% boolean hasPost = false;
+		   for (String[] post : postList) {
+			 hasPost = true;
+			 String diaryId = post[0];
+			 String title = post[1];
+			 String content = post[2];
+			 String regDate = post[3];
+			 String imageName = post[4];
+			 String textOnly = stripHtml(content);
+		%>
+		  <div class="pencil-post-box" onclick="loadDiaryDetail('<%= diaryId %>')">
+			<div class="pencil-thumbnail"
+			  <% if (imageName != null && !imageName.trim().equals("")) { %>
+				style="background-image:url('/uploads/<%= imageName %>');background-size:cover;background-position:center;"
+			  <% } %>
+			></div>
+			<div class="pencil-post-content">
+			  <div class="pencil-post-title"><%= title %></div>
+			  <div class="pencil-post-text">
+				<%= textOnly.length() > 60 ? textOnly.substring(0, 60) + "..." : textOnly %>
+			  </div>
+			  <div class="pencil-post-date"><%= regDate %></div>
+			</div>
+		  </div>
+		<% }
+		  if (!hasPost) { %>
+			<div class="no-post">해당 카테고리의 일기가 없습니다.</div>
+		<% } %>
+	</div>
+
+
+
+
+
+
+
+   </div>
+<div id="diary-content"></div>
+<input type="hidden" id="totalPage" value="<%= totalPage %>">
+<input type="hidden" id="sid" value="<%= (session.getAttribute("sid") != null) ? (String)session.getAttribute("sid") : "" %>">
+
+
+<script>
+//  EUC-KR 인코딩이니까 escape로 인코딩
+function encodeEucKr(str) {
+  return escape(str).replace(/\+/g, '%2B');
+}
+
+// DOM 로드 시 실행
+window.addEventListener('DOMContentLoaded', function () {
+  const bottomBar = parent.document.querySelector('.bottom-bar');
+  if (bottomBar) bottomBar.style.display = 'none';
+
+  const addBtn = document.querySelector(".category-add-btn");
+  const inputBox = document.getElementById("category-input-box");
+  const inputField = document.getElementById("new-category-name");
+
+  if (addBtn && inputBox && inputField) {
+    addBtn.addEventListener("click", () => {
+      const isVisible = inputBox.style.display === "block";
+      inputBox.style.display = isVisible ? "none" : "block";
+      if (!isVisible) inputField.focus();
+    });
+
+    inputField.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submitCategory();
+      }
+    });
+
+    inputField.addEventListener("blur", () => {
+      if (inputField.value.trim() === "") inputBox.style.display = "none";
+    });
+  }
+
+  const deleteBtn = document.querySelector(".category-delete-btn");
+  let deleteMode = false;
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", () => {
+      deleteMode = !deleteMode;
+      document.querySelectorAll(".cat-delete").forEach(icon => {
+        icon.style.display = deleteMode ? "inline" : "none";
+      });
+    });
+  }
+  bindCommentManageButton(); //글 댓글 관리
+  bindWriteButton();  // 일기쓰기 버튼 이벤트 바인딩
+});
+// 일기 상세 보기 페이지 이동
+function loadDiaryDetail(diaryId) {
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "diary_detail.jsp?diary_id=" + encodeURIComponent(diaryId), true);
+  xhr.overrideMimeType("text/html;charset=EUC-KR");
+
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      const wrapper = document.querySelector(".growth-wrapper");
+      if (wrapper) {
+        wrapper.outerHTML = xhr.responseText;
+
+        //  스크립트 수동 실행
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = xhr.responseText;
+        const scripts = tempDiv.querySelectorAll("script");
+
+        scripts.forEach(script => {
+          try {
+            eval(script.innerText);
+          } catch (e) {
+            console.error("스크립트 실행 오류:", e);
+          }
+        });
+      }
+    }
+  };
+
+  xhr.send();
+}
+
+
+// 카테고리 등록 함수
+function submitCategory() {
+  const input = document.getElementById("new-category-name");
+  const name = input.value.trim();
+  const sid = document.getElementById("sid")?.value;
+
+  if (!name) {
+    alert("카테고리명을 입력하세요.");
+    return;
+  }
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "diary_category_insert.jsp?sid=" + encodeURIComponent(sid) + "&category_name=" + name, true);
+  xhr.overrideMimeType("text/plain; charset=EUC-KR");
+
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      const res = xhr.responseText.trim();
+      if (res === "SUCCESS") {
+        window.loadSection("pencil", 1);
+      } else {
+        alert("등록 실패: " + res);
+      }
+    }
+  };
+
+  xhr.send();
+}
+//카테고리 선택 및 이동 함수
+function selectCategory(catId) {
+    const sid = document.getElementById('sid')?.value || '';
+    let url = "section_pencil_right.jsp?sid=" + encodeURIComponent(sid);
+
+    // 모든 카테고리에서 'selected' 클래스 제거
+    document.querySelectorAll('.category-item').forEach(el => el.classList.remove('selected'));
+
+    // 토글: 다시 누르면 전체보기 → section_pencil.jsp 다시 불러오기
+    if (window.currentCategoryId === catId) {
+        window.currentCategoryId = "";
+
+        // sub4.jsp에서 전체 section_pencil.jsp 다시 불러오기
+        if (window.loadSection) {
+            window.loadSection("pencil", 1);  //  page=1
+        }
+        return;
+    } else {
+        window.currentCategoryId = catId;
+        document.querySelector('.category-item[data-id="' + catId + '"]')?.classList.add('selected');
+    }
+
+    // 선택된 카테고리로 오른쪽 영역만 AJAX로 교체
+    if (catId && catId !== "") {
+        url += "&category_id=" + encodeURIComponent(catId);
+    }
+
+    const target = document.getElementById("growth-right");
+    if (!target) return;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.overrideMimeType("text/html;charset=EUC-KR");
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            target.innerHTML = xhr.responseText;
+        }
+    };
+    xhr.send();
+}
+
+
+// 카테고리 삭제 함수 바인딩
+document.querySelectorAll(".cat-delete").forEach(icon => {
+  icon.addEventListener("click", function () {
+    const categoryId = this.dataset.id;
+    const sid = document.getElementById("sid")?.value;
+
+    if (!confirm("정말 이 카테고리를 삭제하시겠습니까?")) return;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", "diary_category_delete.jsp?category_id=" + encodeURIComponent(categoryId) + "&sid=" + encodeURIComponent(sid), true);
+    xhr.overrideMimeType("text/html;charset=EUC-KR");
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        const res = xhr.responseText.trim();
+        if (res === "SUCCESS") {
+          alert("카테고리가 삭제되었습니다.");
+          window.loadSection("pencil", 1);
+        } else {
+          alert("삭제 실패: " + res);
+        }
+      }
+    };
+
+    xhr.send();
+  });
+});
+
+// 일기쓰기 버튼 클릭 시 diary_write.jsp AJAX로 불러오기 및 이벤트 바인딩
+function bindWriteButton() {
+  const writeBtn = document.getElementById("write-btn");
+  if (!writeBtn) return;
+
+  writeBtn.addEventListener("click", () => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", "diary_write.jsp", true);
+    xhr.overrideMimeType("text/html;charset=euc-kr");
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        const diaryContent = parent.document.getElementById("diary-content");
+        if (!diaryContent) {
+          alert("sub4.jsp 내에 #diary-content가 없습니다.");
+          return;
+        }
+
+        diaryContent.innerHTML = xhr.responseText;
+
+        // 스타일 태그 복사 (필요 시)
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = xhr.responseText;
+        const styles = tempDiv.querySelectorAll("style");
+        styles.forEach(style => {
+          if (!parent.document.head.contains(style)) {
+            parent.document.head.appendChild(style.cloneNode(true));
+          }
+        });
+		
+        // 이미지 input과 에디터 영역 재바인딩
+        const imageInput = diaryContent.querySelector('#imageInput');
+        const editor = diaryContent.querySelector('#contentEditable');
+        const fontSizeSelect = diaryContent.querySelector('#fontSizeSelect');
+        const boldBtn = diaryContent.querySelector('#bold-btn');
+        const centerAlignBtn = diaryContent.querySelector('#center-align-btn');
+        const submitBtn = diaryContent.querySelector('#submitBtn'); // 등록 버튼
+
+        // 이미지 업로드 처리
+        if (imageInput && editor) {
+		  imageInput.onchange = null;
+		  imageInput.addEventListener('change', () => {
+			const files = imageInput.files;
+			if (!files.length) return;
+
+			Array.from(files).forEach(file => {
+			  // 1) 실시간 미리보기 (dataURL)
+			  const reader = new FileReader();
+			  reader.onload = (e) => {
+				// 파일 서버 업로드용 FormData 생성
+				const formData = new FormData();
+				formData.append("image", file);
+
+				// 2) 서버에 업로드
+				fetch("diary_image_upload.jsp", {
+				  method: "POST",
+				  body: formData
+				})
+				.then(res => res.text())
+				.then(fileName => {
+				  // fileName: 업로드된 파일명 (예: abc.png)
+				  fileName = fileName.trim();
+				  if (fileName && !fileName.startsWith("ERROR")) {
+					// 미리보기 및 서버파일 경로 img 동시 적용
+					const img = document.createElement('img');
+					img.src = "/uploads/" + fileName; // 최종적으로 서버에서 제공하는 경로 사용
+					img.style.maxWidth = "300px";
+					img.style.display = "block";
+					img.style.margin = "10px auto";
+					editor.appendChild(img);
+					editor.appendChild(document.createElement('br'));
+
+					// 커서 마지막으로 이동
+					const sel = window.getSelection();
+					const range = document.createRange();
+					range.selectNodeContents(editor);
+					range.collapse(false);
+					sel.removeAllRanges();
+					sel.addRange(range);
+
+				  } else {
+					alert("이미지 업로드 실패: " + fileName);
+				  }
+				})
+				.catch(() => {
+				  alert("이미지 업로드 중 오류 발생");
+				});
+			  };
+			  reader.readAsDataURL(file); // 미리보기용 dataURL
+			});
+			imageInput.value = '';
+		  });
+		}
+
+
+        // 폰트 크기 변경 이벤트 바인딩
+        if (fontSizeSelect && editor) {
+          fontSizeSelect.onchange = null;
+
+          fontSizeSelect.addEventListener('change', () => {
+            editor.style.fontSize = fontSizeSelect.value;
+          });
+        }
+
+        // 볼드체 버튼 클릭 이벤트 추가
+        if (boldBtn && editor) {
+          boldBtn.addEventListener('click', () => {
+            const selection = window.getSelection();
+            const range = selection.getRangeAt(0);
+            const selectedText = selection.toString();
+
+            // 선택된 텍스트가 있을 경우
+            if (selectedText) {
+              const span = document.createElement('span');
+              const currentFontFamily = window.getComputedStyle(range.startContainer.parentNode).fontFamily;
+
+              // 폰트가 이미 'GmarketSansTTFBold'인 경우, 볼드체를 취소
+              if (currentFontFamily === 'GmarketSansTTFBold') {
+                span.style.fontFamily = 'GmarketSansTTFLight';  // 기본 폰트로 변경
+              } else {
+                span.style.fontFamily = 'GmarketSansTTFBold';  // 'GmarketSansTTFBold' 폰트로 변경
+              }
+
+              range.surroundContents(span);  // 선택한 텍스트를 <span> 태그로 감쌈
+            } else {
+              // 선택된 텍스트가 없으면 커서 위치에서 볼드체 적용
+              const currentFontFamily = window.getComputedStyle(editor).fontFamily;
+
+              if (currentFontFamily === 'GmarketSansTTFBold') {
+                editor.style.fontFamily = 'GmarketSansTTFLight';  // 기본 폰트로 변경
+              } else {
+                editor.style.fontFamily = 'GmarketSansTTFBold';  // 'GmarketSansTTFBold' 폰트로 변경
+              }
+            }
+          });
+        }
+
+        // 중앙, 왼쪽, 오른쪽 정렬 버튼 클릭 이벤트 추가
+        if (centerAlignBtn && editor) {
+          centerAlignBtn.addEventListener('click', () => {
+            // 중앙 정렬
+            editor.style.textAlign = 'center';
+          });
+        }
+
+        // 왼쪽 정렬 버튼 클릭 이벤트 추가
+        const leftAlignBtn = diaryContent.querySelector('#left-align');
+        if (leftAlignBtn && editor) {
+          leftAlignBtn.addEventListener('click', () => {
+            // 왼쪽 정렬
+            editor.style.textAlign = 'left';
+          });
+        }
+
+        // 오른쪽 정렬 버튼 클릭 이벤트 추가
+        const rightAlignBtn = diaryContent.querySelector('#right-align');
+        if (rightAlignBtn && editor) {
+          rightAlignBtn.addEventListener('click', () => {
+            // 오른쪽 정렬
+            editor.style.textAlign = 'right';
+          });
+        }
+		document.addEventListener("DOMContentLoaded", function () {
+		document.getElementById("back-btn").addEventListener("click", function () {
+		  // #diary-content에 직접 section_pencil.jsp를 AJAX로 다시 불러옴
+		  fetch("section_pencil.jsp")
+			.then(response => response.text())
+			.then(html => {
+			  document.getElementById("diary-content").innerHTML = html;
+
+			  // section_pencil.jsp에서 필요한 이벤트 다시 바인딩
+			  if (typeof rebindPencilEvents === "function") {
+				rebindPencilEvents();
+			  }
+			})
+			.catch(error => console.error("되돌리기 실패:", error));
+		});
+	  });
+        // 등록 버튼 클릭 시 폼 제출 및 내용 저장
+        submitBtn.addEventListener('click', function () {
+          // contentEditable에서 본문 내용 가져오기
+          const content = document.getElementById("contentEditable").innerHTML;
+          const title = document.querySelector('[name="title"]').value;
+          const category_id = document.querySelector('[name="category_id"]').value;
+          
+          // 숨겨진 필드에 본문 내용과 이미지 정보 설정
+          document.getElementById("hiddenContent").value = content;
+		  document.getElementById("diaryForm").submit();  // 폼 제출
+        });
+      }
+    };
+    xhr.send();
+  });
+}
+
+function bindCommentManageButton() {
+  const btn = document.getElementById("comment-manage-btn");
+  if (!btn) return;
+
+  btn.addEventListener("click", () => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", "comment_manage.jsp", true);
+    xhr.overrideMimeType("text/html;charset=euc-kr");
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        const diaryContent = parent.document.getElementById("diary-content");
+        if (!diaryContent) {
+          alert("sub4.jsp 내에 #diary-content가 없습니다.");
+          return;
+        }
+
+        diaryContent.innerHTML = xhr.responseText;
+
+        // style 복사
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = xhr.responseText;
+
+        //  style 적용
+        const styles = tempDiv.querySelectorAll("style");
+        styles.forEach(style => {
+          if (!parent.document.head.contains(style)) {
+            parent.document.head.appendChild(style.cloneNode(true));
+          }
+        });
+
+        //  script 실행
+        const scripts = tempDiv.querySelectorAll("script");
+        scripts.forEach(script => {
+          try {
+            eval(script.innerText);
+          } catch (e) {
+            console.error("스크립트 실행 오류:", e);
+          }
+        });
+      }
+    };
+
+    xhr.send();
+  });
+}
+
+
+</script>
+
+
+
+
+</body>
+</html>

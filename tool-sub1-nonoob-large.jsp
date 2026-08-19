@@ -1,0 +1,135 @@
+<%@ page contentType="text/html;charset=euc-kr" %>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리도구 세트 중상급자 대형</title>
+    <style>
+		@font-face {
+            font-family: 'GmarketSansTTFMedium';
+            src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFBold';
+            src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFLight';
+            src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+        }
+		body {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+		.title {
+			font-family: 'GmarketSansTTFMedium';
+			font-size: 28px;
+			height: 70px;
+		}
+		.title font {
+			color: #7ab863;
+		}
+		.container {
+		  width: 1440px;
+		}
+		.tool1, .tool2 {
+		  width: 1260px;
+		}
+		.tool-name {
+		  font-size: 32px;
+		  font-family: 'GmarketSansTTFMedium';
+		  height: 120px;
+		  vertical-align: bottom;
+		}
+		.explain {
+		  font-size: 24px;
+		  font-family: 'GmarketSansTTFLight';
+		  vertical-align: top;
+		  padding-top: 40px;
+		}
+		hr {
+		  border: none;
+		  border-top: 1px solid #d6d6d6;
+		  width: 1200px;
+		}
+		.pot {
+		  width: 1100px;
+		  text-align: center;
+		}
+		.pot-price {
+		  font-size: 24px;
+		  font-family: 'GmarketSansTTFLight';
+		  padding-top: 30px;
+		}
+	</style>
+</head>
+<body>
+	<center>
+	<div class="title">
+	 다육과 함께하는 <font>필수 도구 3종을 </font>제공합니다
+	</div>
+	
+	<div class="container">
+	  <table class="tool1" style="margin-bottom: 40px;">
+	  	<tr>
+		  <td rowspan="2" style="width: 300px;"><img src="images/novice1.jpg"></td>
+		  <td class="tool-name">미니 삽</td>
+		</tr>
+		<tr>
+		  <td class="explain">분갈이, 흙 추가, 뿌리 정리에 적합한 소형 삽입니다.<br>
+		      가벼운 무게와 손에 맞는 그립으로 세밀한 작업이 가능합니다.<br>
+			  플라스틱 또는 스테인리스 재질로 내구성도 우수합니다.
+		  </td>
+		</tr>
+	  </table>
+
+	  <hr>
+
+	  <table class="tool1" style="margin: 40px 0;">
+	  	<tr>
+		  <td rowspan="2" style="width: 300px;"><img src="images/novice2.jpg"></td>
+		  <td class="tool-name">분무기</td>
+		</tr>
+		<tr>
+		  <td class="explain">미세 분무 기능으로 다육이 표면에만 적당량의 수분을 공급할 수 있어 과습을 예방합니다.<br>
+		      한 손으로 조작 가능한 트리거 방식이며, 가볍고 휴대가 간편합니다.
+		  </td>
+		</tr>
+	  </table>
+
+	  <hr>
+
+	  <table class="tool2" style="margin: 40px 0;">
+	  	<tr>
+		  <td rowspan="2" style="width: 300px;"><img src="images/pot-large1.png"></td>
+		  <td class="tool-name">화분(5종 중 택 1)</td>
+		</tr>
+		<tr>
+		  <td class="explain">바닥에 배수구가 있어 뿌리 썩음 방지에 효과적입니다. 실내외 모두 사용 가능합니다.<br>
+		      기본으로 하얀색 화분이 제공되며 다른 화분으로 변경이 가능합니다.
+		  </td>
+		</tr>
+	  </table>
+
+	  <table class="pot">
+	    <tr>
+		  <td><img src="images/pot2-large1.png"></td>
+		  <td><img src="images/pot2-large2.png"></td>
+		  <td><img src="images/pot2-large3.png"></td>
+		  <td><img src="images/pot2-large4.png"></td>
+		</tr>
+		<tr>
+		  <td class="pot-price">화이트 자작나무<br>(+6,000)원</td>
+		  <td class="pot-price">모던육각 그레이<br>(+5,000)원</td>
+		  <td class="pot-price">모던사각 라이트그레이<br>(+6,000)원</td>
+		  <td class="pot-price">모던사각 블랙<br>(+6,000)원</td>
+		</tr>
+	  </table>
+	</div>
+	</center>
+</body>
+</html>

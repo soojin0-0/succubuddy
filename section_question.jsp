@@ -1,0 +1,250 @@
+<%@ page contentType="text/html; charset=euc-kr" pageEncoding="euc-kr" %>
+<%@ page import="java.sql.*, java.text.SimpleDateFormat" %>
+<%
+String jdbcUrl = "jdbc:mysql://localhost:3306/succu";
+String dbUser = "multi";
+String dbPass = "abcd";
+
+String categoryParam = request.getParameter("category");
+String category = (categoryParam != null && !categoryParam.equals("")) ? categoryParam : "궁금톡톡";
+
+int pageSize = 5;
+int offset = 0;
+int currentPage = 1;
+String pageParam = request.getParameter("page");
+if (pageParam != null && pageParam.matches("\\d+")) {
+    currentPage = Integer.parseInt(pageParam);
+}
+offset = (currentPage - 1) * pageSize;
+
+Connection conn = null;
+PreparedStatement ps = null;
+ResultSet rs = null;
+
+int totalCount = 0;
+int totalPage = 1;
+
+try {
+    Class.forName("org.gjt.mm.mysql.Driver");
+    conn = DriverManager.getConnection(jdbcUrl, dbUser, dbPass);
+
+    // 1. 전체 게시글 수 조회
+    ps = conn.prepareStatement("SELECT COUNT(*) FROM sub4_write WHERE category = ?");
+    ps.setString(1, category);
+    rs = ps.executeQuery();
+    if (rs.next()) {
+        totalCount = rs.getInt(1);
+    }
+    totalPage = (int) Math.ceil((double) totalCount / pageSize);
+    rs.close();
+    ps.close();
+
+    // 2. 게시글 목록 조회
+    ps = conn.prepareStatement(
+        "SELECT diary_id, title, user_id, reg_date, views, image_name FROM sub4_write " +
+        "WHERE category = ? ORDER BY reg_date DESC LIMIT ?, ?"
+    );
+    ps.setString(1, category);
+    ps.setInt(2, offset);
+    ps.setInt(3, pageSize);
+    rs = ps.executeQuery();
+%>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="euc-kr">
+  <title>다육일기 게시판</title>
+  <style>
+    /* 스타일 내용은 그대로 유지 */
+
+	a{text-decoration:none;}
+    @font-face { font-family: 'GmarketSansTTFMedium'; src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype'); }
+    @font-face { font-family: 'GmarketSansTTFBold'; src: url('fonts/GmarketSansTTFBold.ttf') format('truetype'); }
+    @font-face { font-family: 'GmarketSansTTFLight'; src: url('fonts/GmarketSansTTFLight.ttf') format('truetype'); }
+    @font-face { font-family: 'RixInooAriDuriPro'; src: url('fonts/RixInooAriDuri_Pro Regular.otf') format('opentype'); font-weight: normal; font-style: normal; }
+
+    .idea-section-wrapper {
+      width: 1600px;
+      margin: 0 auto;
+      background-color: #f1f6ed;
+      border-radius: 20px;
+      padding: 30px 0;
+      box-sizing: border-box;
+      margin-left: -30px;
+    }
+    .board-wrapper { width: 1600px; margin: 0 auto; }
+    .board-header-wrapper {
+      width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      font-size: 28px;
+      padding: 30px 40px;
+      background-color: white;
+      font-family: 'GmarketSansTTFMedium';
+    }
+    .board-header-wrapper .col-title { flex: 2; padding-left: 40px; }
+    .board-header-wrapper .col-views { flex: 1; text-align: center; padding-left: 150px; }
+    .board-header-wrapper .col-writer { flex: 1.6; text-align: center; }
+    .board-header-wrapper .col-date { flex: 1.2; text-align: center; }
+
+    .board-line {
+      width: 1500px;
+      height: 2px;
+      background-color: #67b54d;
+      margin: 0 auto;
+    }
+    .board-card {
+	  display: flex;
+	  align-items: center;
+	  justify-content: space-between;
+	  padding: 30px 40px;
+	  box-sizing: border-box;
+	  min-height: 200px; /*  높이 고정 */
+	}
+    .board-card .title-box {
+      display: flex;
+      align-items: center;
+      flex: 2;
+      gap: 20px;
+      font-size: 32px;
+      color: #333;
+      padding-left: 20px;
+      font-family: 'GmarketSansTTFLight';
+    }
+    .title-box {
+	  font-size: 32px;
+	  color: #333;
+	  font-family: 'GmarketSansTTFLight';
+	  align-items: center;
+	  box-sizing: border-box;
+	  padding-left: 20px;
+	}
+
+	.title-box.with-image {
+	  display: flex;
+	  gap: 20px;
+	}
+
+	.title-box.no-image {
+	  display: block;
+	}
+
+	.image-box {
+	  width: 150px;
+	  height: 150px;
+	  background-color: #67b54d;
+	  overflow: hidden;
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+	  margin-left: 10px;
+	}
+
+	.image-box img {
+	  width: 100%;
+	  height: 100%;
+	  object-fit: cover;
+	  display: block;
+	}
+
+    .views {
+      flex: 0.9;
+      text-align: center;
+      font-size: 32px;
+      font-family: 'GmarketSansTTFMedium';
+    }
+    .view-count-box {
+      background-color: #f5b100;
+      color: white;
+      border-radius: 20px;
+      padding: 9px 15px;
+      display: inline-block;
+    }
+    .writer, .date {
+      flex: 1;
+      text-align: center;
+      font-size: 34px;
+      color: #666;
+      font-family: 'GmarketSansTTFLight';
+    }
+	.image-box.no-bg {
+	  background-color: transparent !important;
+	}
+
+	.hidden {
+	  visibility: hidden;
+	  height: 0;
+	  margin: 0;
+	  overflow: hidden;
+	}
+
+  </style>
+</head>
+<body>
+<div class="board-header-wrapper">
+  <div class="col-title">내용</div>
+  <div class="col-views">조회수</div>
+  <div class="col-writer">작성자</div>
+  <div class="col-date">날짜</div>
+</div>
+
+<div class="board-wrapper">
+<div class="idea-section-wrapper">
+<%
+	boolean isFirst = true;
+
+	while (rs.next()) {
+		int diaryId = rs.getInt("diary_id");
+		String title = rs.getString("title");
+		String writer = rs.getString("user_id");
+		int views = rs.getInt("views");
+		Timestamp regDate = rs.getTimestamp("reg_date");
+		String imageName = rs.getString("image_name");
+		String formattedDate = new SimpleDateFormat("yyyy.MM.dd").format(regDate);
+
+		boolean isPng = imageName != null && imageName.toLowerCase().endsWith(".png");  //  여기서 선언해야 안전
+%>
+
+    <% if (!isFirst) { %>
+      <div class="board-line"></div>
+    <% } else { isFirst = false; } %>
+
+	<a class="board-card" href="sub4_text.jsp?diary_id=<%= rs.getInt("diary_id") %>&category=궁금톡톡">
+	  <% if (imageName != null && !imageName.trim().equals("")) { %>
+		<div class="title-box with-image">
+		  <div class="image-box <%= isPng ? "no-bg" : "" %>">
+			<img src="/uploads/<%= imageName %>" alt="썸네일">
+		  </div>
+		  <div class="title-text"><%= title %></div>
+		</div>
+	  <% } else { %>
+		<div class="title-box">
+		  <div class="title-text"><%= title %></div>
+		</div>
+	  <% } %>
+	  <div class="views"><span class="view-count-box"><%= views %></span></div>
+	  <div class="writer"><%= writer %></div>
+	  <div class="date"><%= formattedDate %></div>
+	</a>
+
+<%
+    }
+    rs.close();
+    ps.close();
+    conn.close();
+} catch (Exception e) {
+    e.printStackTrace();
+    out.println("<div style='color:red;'>에러 발생: " + e.getMessage() + "</div>");
+}
+%>
+
+  <div class="board-line"></div>
+
+  <!-- pagination 위해 hidden input 추가 -->
+  <input type="hidden" id="totalPage" value="<%= totalPage %>">
+  <input type="hidden" id="currentPage" value="<%= currentPage %>">
+</div> <!-- idea-section-wrapper -->
+</div> <!-- board-wrapper -->
+</body>
+</html>

@@ -1,0 +1,43 @@
+buildscript {
+	ext {
+		lombokVersion = '1.18.26'
+	}
+	repositories {
+		mavenCentral()
+	}
+}
+
+plugins {
+	id 'java'
+	id 'idea'
+	id 'jacoco'
+	id 'org.springframework.boot' version '2.6.14'
+	id 'io.spring.dependency-management' version '1.1.0'
+	id 'org.asciidoctor.jvm.convert' version "3.3.2"
+}
+
+jar {
+	archiveVersion = '0.0.1-SNAPSHOT'
+	archiveBaseName = 'kakaopay-sample-master'
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_11
+	targetCompatibility = JavaVersion.VERSION_11
+}
+
+repositories {
+	mavenCentral()
+}
+
+
+dependencies {
+	implementation('org.springframework.boot:spring-boot-starter')
+	implementation("org.springframework.boot:spring-boot-starter-web")
+	implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
+	implementation("commons-codec:commons-codec:1.10")
+
+	// lombok
+	implementation("org.projectlombok:lombok:${lombokVersion}")
+	annotationProcessor("org.projectlombok:lombok:${lombokVersion}")
+}

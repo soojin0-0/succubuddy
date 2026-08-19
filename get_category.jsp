@@ -1,0 +1,63 @@
+<%@ page language="java" contentType="application/json; charset=EUC-KR" pageEncoding="EUC-KR"%>
+<%@ page import="java.sql.*, org.json.*" %>
+<%
+    String categoryId = request.getParameter("category");
+    String description = "";
+    String structuralFeatures = "";
+    String growthAndPropagation = "";
+    String productList = "";
+
+    try {
+        Class.forName("org.gjt.mm.mysql.Driver");
+        Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/succu", "multi", "abcd");
+
+        // 설명/특징/생장정보
+        PreparedStatement ps = conn.prepareStatement(
+            "SELECT description, structural_features, growth_and_propagation FROM plant_category WHERE category_id = ?");
+        ps.setString(1, categoryId);
+        ResultSet rs = ps.executeQuery();
+        if (rs.next()) {
+            description = rs.getString("description");
+            structuralFeatures = rs.getString("structural_features");
+            growthAndPropagation = rs.getString("growth_and_propagation");
+        }
+        rs.close();
+        ps.close();
+
+        // 상품 목록
+        ps = conn.prepareStatement("SELECT product_id, product_name FROM plant_products WHERE category_id = ?");
+        ps.setString(1, categoryId);
+        rs = ps.executeQuery();
+
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        sb.append("<div class='product-row'>");
+        while (rs.next()) {
+            String productId = rs.getString("product_id");
+            String productName = rs.getString("product_name");
+
+            sb.append("<div class='product-item'>")
+              .append("<img src='images/").append(productId).append(".png' alt='").append(productName).append("' class='product-img' ")
+              .append("onerror=\"this.onerror=null; this.src='images/no_image.png';\">")
+              .append("<div class='product-name'>").append(productName).append("</div>")
+              .append("</div>");
+
+            count++;
+            if (count % 4 == 0) sb.append("</div><div class='product-row'>");
+        }
+        sb.append("</div>");
+        productList = sb.toString();
+
+        conn.close();
+
+        JSONObject json = new JSONObject();
+        json.put("descriptionParts", description.split("(?<=특징이며|있으며|구별되며|많으며)"));
+        json.put("structuralFeatures", structuralFeatures.split("\\.\\s*"));
+        json.put("growthAndPropagation", growthAndPropagation.split("\\.\\s*"));
+        json.put("productList", productList);
+
+        out.print(json.toString());
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+%>

@@ -1,0 +1,366 @@
+<%@ page contentType="text/html; charset=euc-kr" %>
+<%@ page pageEncoding="euc-kr" %>
+<%@ page import="java.sql.*" %>
+<%
+request.setCharacterEncoding("euc-kr");
+String inquiry_id = request.getParameter("inquiry_id");
+String inquiry_subject = "", inquiry_text = "", inquiry_ymd = "", product_id = "", product_name = "", inquiry_user_id = "", status = "", manager_answer = "";
+
+Connection conn = null;
+PreparedStatement pstmt = null;
+ResultSet rs = null;
+
+try {
+    Class.forName("org.gjt.mm.mysql.Driver");
+    conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/succu?characterEncoding=EUC-KR", "multi", "abcd");
+
+    String sql = "SELECT i.product_id, p.name, i.user_id, i.inquiry_subject, i.inquiry_text, " +
+             "DATE_FORMAT(i.inquiry_ymd, '%Y.%m.%d') AS inquiry_ymd, i.status, i.manager_answer " +
+             "FROM inquiry i LEFT JOIN product p ON i.product_id = p.product_id " +
+             "WHERE i.inquiry_id = ?";
+
+    pstmt = conn.prepareStatement(sql);
+    pstmt.setString(1, inquiry_id);
+    rs = pstmt.executeQuery();
+
+    if (rs.next()) {
+        product_id = rs.getString("product_id");
+        product_name = rs.getString("name");
+        inquiry_subject = rs.getString("inquiry_subject");
+        inquiry_text = rs.getString("inquiry_text");
+        inquiry_ymd = rs.getString("inquiry_ymd");
+        inquiry_user_id = rs.getString("user_id");
+		status = rs.getString("status");
+		manager_answer = rs.getString("manager_answer");
+		if (manager_answer == null) manager_answer = "";
+    }
+
+    rs.close();
+    pstmt.close();
+    conn.close();
+
+} catch (Exception e) {
+    e.printStackTrace();
+}
+%>
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+	<title>고객센터</title>
+    <style>
+		a {
+			text-decoration: none;
+			color: inherit;  /* 상위 요소의 색상 그대로 */
+		}
+
+        @font-face {
+            font-family: 'GmarketSansTTFMedium';
+            src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFBold';
+            src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFLight';
+            src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+        }
+
+		@font-face {
+             font-family: 'RixInooAriDuriPro';  /* 폰트 이름 지정 */
+	     src: url('fonts/RixInooAriDuri_Pro Regular.otf')  format('opentype'); /* OTF 파일은 'opentype' 지정 */
+	     font-weight: normal;
+	     font-style: normal;
+         }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            max-width: 1920px; /* 화면 크기에 맞춰 자동 조정 */
+            overflow-x: hidden;
+        }
+
+		.navbar {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         padding: 40px 150px;
+         width: 100%;
+         margin: 0 auto;
+         margin-bottom: 20px; /* 네비게이션 아래 여백 추가 */
+		 position: fixed;
+		 top: 0;
+		 left: 0;
+		 z-index: 999;
+
+		/* 반투명 배경 + 블러 처리 */
+		  background-color: rgba(255, 255, 255, 1); /* 반투명 흰색 */
+		  backdrop-filter: blur(); /* 뒷배경 블러 효과 */
+		  -webkit-backdrop-filter: blur(8px); /* 사파리 대응 */
+      }
+
+      .logo {
+         display: block;
+         width: 300px;
+         height: 56px;
+         margin-left: -30px;
+         margin-right: 20px;
+      }
+
+      .nav-menu {
+         display: flex;
+         align-items: center;
+         gap: 80px;
+      }
+
+      .nav-menu a {
+         text-decoration: none;
+         color: black;
+         font-size: 26px;
+         font-weight: 550;
+         font-family: 'GmarketSansTTFMedium';
+         margin-top: 12px;
+      }
+
+      .nav-icons {
+         display: flex;
+         align-items: center;
+         gap: 35px; /* 아이콘 및 로그인 간격 */
+         margin-top: 10px; /* 아이콘과 로그인 위치 조정 */
+         margin-left: 33px;
+      }
+
+      /* 아이콘 크기 조정 */
+      .nav-icons img {
+         width: 40px;
+         height: 40px;
+      }
+
+      /* 로그아웃 링크 스타일 */
+      .nav-login {
+         text-decoration: none;
+         font-size: 24px;
+         font-family: 'GmarketSansTTFMedium';
+         color: black;
+         margin-top:10px;
+      }
+
+
+		/* 로그인 링크 스타일 */
+		.nav-logout {
+			text-decoration: none;
+			font-size: 24px;
+			font-family: 'GmarketSansTTFMedium';
+			color: black;
+			margin-top:10px;
+		}
+  
+        p {
+            font-family: 'GmarketSansTTFLight';
+        }
+
+        h2 {
+            font-family: 'GmarketSansTTFBold';
+        }
+
+        h6 {
+            font-family: 'GmarketSansTTFMedium';
+        }
+
+		/*푸터*/
+       .footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 1920px;
+            height: 283px;
+            padding: 0 150px; /* 왼쪽과 오른쪽 패딩 조정 */
+            background-color: #60af46;
+			margin-top: 109px;
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .footer-left {
+            font-size: 50px;
+            font-family: 'RixInooAriDuriPro'; /* Medium font 적용 */
+            margin-left: 50px;
+            color: #ffffff;
+        }
+
+        .footer-right {
+            font-size: 18px;
+            color: #ffffff;
+            margin-left: 130px;
+            font-family: 'GmarketSansTTFLight'; /* Light font 적용 */
+        }
+
+        .footer-right span {
+            margin-bottom: 10px;
+        }
+
+        .footer-right a {
+            text-decoration: none;
+            color: #ffffff;
+        }
+		.title {
+			margin-top: 200px;
+			margin-bottom: 40px;
+			font-family: 'GmarketSansTTFLight';
+			font-size: 32px;
+			text-align: left;
+			width: 1100px;
+			color: #888;
+		}
+
+		.container {
+			width: 1200px;
+			height: auto;
+			border-top: 2px solid #000;
+			border-bottom: 2px solid #000;
+			margin-bottom: 80px;
+		}
+		.detail1 table {
+			width: 1100px;
+			height: 130px;
+			margin-left: 50px;
+			margin-right: 50px;
+			font-size: 28px;
+			font-family: 'GmarketSansTTFMedium';
+		}
+		.detail1 td:nth-child(1) {
+			width: 800px;
+		}
+		.detail1 input {
+			width: 800px;
+			height: 60px;
+			background-color: #f5f5f5;
+			border: none;
+			font-size: 28px;
+			font-family: 'GmarketSansTTFMedium';
+			padding-left: 20px
+		}
+		.detail1 td:nth-child(2) {
+			width: 250px;
+			text-align: right;
+		}
+		.detail2 {
+			width: 1100px;
+			height: 530px;
+			margin-left: 50px;
+			margin-right: 50px;
+			background-color: #f5f5f5;
+			text-align: left;
+			padding: 20px;
+			font-size: 28px;
+			font-family: 'GmarketSansTTFMedium';
+		}
+		.detail4 {
+			width: 1100px;
+			height: 195px;
+			margin-left: 50px;
+			margin-right: 50px;
+			margin-top: 35px;
+			background-color: #f5f5f5;
+			text-align: left;
+			padding: 20px;
+			font-size: 28px;
+			font-family: 'GmarketSansTTFMedium';
+			margin-bottom: 40px;
+		}
+	</style>
+</head>
+<body>
+	<header class="navbar">
+      <a href="main.jsp">
+      <img src="images/logo.png" alt="SuccuBuddy Logo" class="logo">
+      </a>
+      <nav class="nav-menu">
+         <a href="sub1.jsp">다육 세트</a>
+         <a href="sub2.jsp">다육 단품</a>
+         <a href="sub3.jsp">맞춤 다육 추천</a>
+         <a href="sub4.jsp">다육 탐구 생활</a>
+         <a href="sub5.jsp">고객센터</a>
+      </nav>
+      <div class="nav-icons">
+         <a href="mypage.jsp"><img src="images/Person.png" alt="사용자"></a>
+         <a href="shopping_list.jsp"><img src="images/cart.png" alt="장바구니"></a>
+         <a href="logout.jsp" class="nav-login">로그아웃</a> 
+      </div>
+	</header>
+
+<center>
+<!-- 제목 -->
+<div class="title">
+	<table style="width: 1100px;">
+	  <tr>
+		<td style="width: 90%;">
+			<a href="sub5-inquiry.jsp">고객센터</a> >
+			<font style="color: #7ab863; font-family: 'GmarketSansTTFMedium';"><%= inquiry_user_id %></font>님의 문의
+		</td>
+	  </tr>
+	</table>
+</div>
+
+<div class="container">
+        <div class="detail1">
+            <table>
+                <tr>
+                    <td><input type="text" value="<%= inquiry_subject %>" readonly></td>
+                    <td><%= inquiry_ymd %></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="detail2">
+            <%= inquiry_text %>
+        </div>
+		
+		<div class="detail4">
+		  <div style="margin-bottom: 10px; font-family: 'GmarketSansTTFMedium'; color: #f4a900;">
+		  <%
+			if ("답변대기".equals(status)) {
+		  %>
+			답변대기중입니다.
+		  <%
+			} else {
+		  %>
+			<div style="margin-top: 10px; font-family: 'GmarketSansTTFMedium'; color: #7ab863;"><%= manager_answer %></div>
+		  <%
+			}
+		  %>
+		  </div>
+		</div>
+
+</div>
+</center>
+
+<footer class="footer">
+    <div class="footer-left">
+        <span class="brand-name">succubuddy</span>
+    </div>
+    <div class="footer-right">
+	<br>
+        <span>주소 : 충청남도 천안시 서북구 성환읍 대학로 91 | EMAIL : succubuddy@naver.com</span>
+        <span>TEL : 070-022-2026 | &copy; 2025 succubuddy. All Rights Reserved.</span>
+		<br>
+        <span><a href="#">개인정보처리방침</a> | <a href="#">이용약관</a></span>
+    </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,63 @@
+<%@ page contentType="text/plain; charset=euc-kr" pageEncoding="euc-kr" %>
+<%@ page import="java.sql.*" %>
+
+<%
+request.setCharacterEncoding("euc-kr");  // POST 파라미터 인코딩 고정
+
+String sid = request.getParameter("sid");
+String categoryName = request.getParameter("category_name");
+
+// 방어적 처리 (널/공백 제거)
+if (sid == null || sid.trim().equals("")) {
+    out.print("sid 누락");
+    return;
+}
+if (categoryName == null || categoryName.trim().equals("")) {
+    out.print("카테고리명을 입력하세요.");
+    return;
+}
+
+categoryName = categoryName.trim();  // 공백만 제거
+
+Connection conn = null;
+PreparedStatement pstmt = null;
+ResultSet rs = null;
+
+try {
+    Class.forName("org.gjt.mm.mysql.Driver");
+    conn = DriverManager.getConnection(
+        "jdbc:mysql://localhost:3306/succu?useUnicode=true&characterEncoding=euc-kr",
+        "multi", "abcd"
+    );
+
+    // 동일 유저 + 동일 카테고리명 (공백, 대소문자 무시) 있는지 체크
+    pstmt = conn.prepareStatement(
+        "SELECT COUNT(*) FROM diary_category WHERE user_id = ? AND TRIM(category_name) = ?"
+    );
+    pstmt.setString(1, sid);
+    pstmt.setString(2, categoryName);
+    rs = pstmt.executeQuery();
+
+    if (rs.next() && rs.getInt(1) > 0) {
+        out.print("이미 존재하는 카테고리입니다.");
+    } else {
+        rs.close(); pstmt.close();
+
+        pstmt = conn.prepareStatement(
+            "INSERT INTO diary_category (user_id, category_name) VALUES (?, ?)"
+        );
+        pstmt.setString(1, sid);
+        pstmt.setString(2, categoryName);
+        pstmt.executeUpdate();
+
+        out.print("SUCCESS");
+    }
+} catch (Exception e) {
+    e.printStackTrace();
+    out.print("에러: " + new String(e.getMessage().getBytes("8859_1"), "euc-kr"));
+} finally {
+    if (rs != null) try { rs.close(); } catch (Exception e) {}
+    if (pstmt != null) try { pstmt.close(); } catch (Exception e) {}
+    if (conn != null) try { conn.close(); } catch (Exception e) {}
+}
+%>

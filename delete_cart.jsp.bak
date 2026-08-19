@@ -1,0 +1,57 @@
+<%@ page contentType="text/html;charset=euc-kr" %>
+<%@ page import="java.sql.*" %>
+
+<%
+    String userId = (String) session.getAttribute("sid"); // 로그인된 사용자 확인
+    String productIds = request.getParameter("product_ids");
+
+    if (userId == null) {
+        out.print("로그인 필요");
+        return;
+    }
+
+    if (productIds == null || productIds.trim().isEmpty()) {
+        out.print("상품 ID 없음");
+        return;
+    }
+
+    String DB_URL = "jdbc:mysql://localhost:3306/succu";
+    String DB_ID = "multi";
+    String DB_PASSWORD = "abcd";
+
+    Connection conn = null;
+    PreparedStatement pstmt = null;
+
+    try {
+        Class.forName("org.gjt.mm.mysql.Driver");
+        conn = DriverManager.getConnection(DB_URL, DB_ID, DB_PASSWORD);
+
+        // 자동 커밋 강제 설정 (트랜잭션 문제 방지)
+        conn.setAutoCommit(true);
+
+        // productIds를 , 기준으로 나눠서 배열로 변환
+        String[] productIdArray = productIds.split(",");
+
+        // 공백 제거 및 작은따옴표 추가
+        for (int i = 0; i < productIdArray.length; i++) {
+            productIdArray[i] = "'" + productIdArray[i].trim() + "'";
+        }
+
+        String sql = "DELETE FROM cart WHERE user_id = ? AND TRIM(product_id) IN (" + String.join(",", productIdArray) + ")";
+        pstmt = conn.prepareStatement(sql);
+        pstmt.setString(1, userId);
+
+        int rowsDeleted = pstmt.executeUpdate();
+
+        if (rowsDeleted > 0) {
+            out.print("success");
+        } else {
+            out.print("삭제 실패 - 장바구니에 해당 상품이 없습니다.");
+        }
+    } catch (Exception e) {
+        out.print("error: " + e.getMessage()); // 디버깅을 위해 오류 메시지 출력
+    } finally {
+        if (pstmt != null) try { pstmt.close(); } catch (SQLException ignored) {}
+        if (conn != null) try { conn.close(); } catch (SQLException ignored) {}
+    }
+%>

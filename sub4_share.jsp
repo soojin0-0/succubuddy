@@ -1,0 +1,668 @@
+<%@ page contentType="text/html; charset=euc-kr" pageEncoding="euc-kr" %>
+<%@ page import="java.sql.*" %>
+
+<%
+request.setCharacterEncoding("euc-kr");
+
+int curPage = 1;
+int limit = 6;
+int totalCount = 0;
+int totalPages = 0;
+Connection conn = null;
+PreparedStatement pstmt = null;
+ResultSet rs = null;
+
+try {
+    if (request.getParameter("page") != null) {
+        curPage = Integer.parseInt(request.getParameter("page"));
+    }
+    int offset = (curPage - 1) * limit;
+
+    Class.forName("org.gjt.mm.mysql.Driver");
+    conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/succu", "multi", "abcd");
+
+    // 전체 글 개수
+    pstmt = conn.prepareStatement("SELECT COUNT(*) FROM sub4_write");
+    rs = pstmt.executeQuery();
+    if (rs.next()) totalCount = rs.getInt(1);
+    rs.close();
+    pstmt.close();
+
+    totalPages = (int)Math.ceil(totalCount / (double)limit);
+
+    // 게시글 불러오기
+	pstmt = conn.prepareStatement(
+		"SELECT title, image_name FROM sub4_write WHERE category = '나눔창고' ORDER BY reg_date DESC LIMIT ? OFFSET ?"
+	);
+
+    pstmt.setInt(1, limit);
+    pstmt.setInt(2, offset);
+    rs = pstmt.executeQuery();
+%>
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="euc-kr">
+  <title>다육일기</title>
+  <style>
+    @font-face {
+      font-family: 'GmarketSansTTFMedium';
+      src: url('/fonts/GmarketSansTTFMedium.ttf') format('truetype');
+    }
+
+    @font-face {
+      font-family: 'GmarketSansTTFBold';
+      src: url('/fonts/GmarketSansTTFBold.ttf') format('truetype');
+    }
+
+    @font-face {
+      font-family: 'GmarketSansTTFLight';
+      src: url('/fonts/GmarketSansTTFLight.ttf') format('truetype');
+    }
+
+    @font-face {
+      font-family: 'RixInooAriDuriPro';
+      src: url('/fonts/RixInooAriDuri_Pro Regular.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
+	
+	@media screen and (max-width: 1024px) {
+	  .content-detail {
+		width: 100%; /* 또는 48% 정도 */
+	  }
+	}
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 1920px;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+	.navbar {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         padding: 82px 150px;
+         width: 1920px;
+         margin: 0 auto;
+         margin-bottom: 20px; /* 네비게이션 아래 여백 추가 */
+      }
+
+      .logo {
+         display: block;
+         width: 300px;
+         height: 56px;
+         margin-left: -30px;
+         margin-right: 20px;
+      }
+
+      .nav-menu {
+         display: flex;
+         align-items: center;
+         gap: 80px;
+      }
+
+      .nav-menu a {
+         text-decoration: none;
+         color: black;
+         font-size: 26px;
+         font-weight: 550;
+         font-family: 'GmarketSansTTFMedium';
+         margin-top: 12px;
+      }
+
+      .nav-icons {
+         display: flex;
+         align-items: center;
+         gap: 35px; /* 아이콘 및 로그인 간격 */
+         margin-top: 10px; /* 아이콘과 로그인 위치 조정 */
+         margin-left: 33px;
+      }
+
+      /* 아이콘 크기 조정 */
+      .nav-icons img {
+         width: 40px;
+         height: 40px;
+      }
+
+      /* 로그아웃 링크 스타일 */
+      .nav-login {
+         text-decoration: none;
+         font-size: 24px;
+         font-family: 'GmarketSansTTFMedium';
+         color: black;
+         margin-top:10px;
+      }
+
+
+      /* 로그인 링크 스타일 */
+      .nav-login {
+         text-decoration: none;
+         font-size: 24px;
+         font-family: 'GmarketSansTTFMedium';
+         color: black;
+         margin-top:10px;
+      }
+  
+        p {
+            font-family: 'GmarketSansTTFLight';
+        }
+
+        h2 {
+            font-family: 'GmarketSansTTFBold';
+        }
+
+        h6 {
+            font-family: 'GmarketSansTTFMedium';
+        }
+
+		/*푸터*/
+       .footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 1920px;
+            height: 283px;
+            padding: 0 150px; /* 왼쪽과 오른쪽 패딩 조정 */
+            background-color: #60af46;
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .footer-left {
+            font-size: 50px;
+            font-family: 'RixInooAriDuriPro'; /* Medium font 적용 */
+            margin-left: 50px;
+            color: #ffffff;
+        }
+
+        .footer-right {
+            font-size: 18px;
+            color: #ffffff;
+            margin-left: 130px;
+            font-family: 'GmarketSansTTFLight'; /* Light font 적용 */
+        }
+
+        .footer-right span {
+            margin-bottom: 10px;
+        }
+
+        .footer-right a {
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+    .container {
+      width: 100%;
+      
+    }
+
+    .container-title {
+      text-align: center;
+      margin: 40px 0 30px;
+      font-size: 34px;
+	  font-family: 'GmarketSansTTFMedium';
+    }
+
+    .diary-bar {
+	  background-color: #eef4ea;
+	  display: flex;
+	  align-items: center;
+	  justify-content: space-between;
+	  width: 1500px;
+	  height: 212px;
+	  margin: 80px auto 0 auto; /* 여기만 수정 */
+	  padding: 20px 130px;
+	  border-radius: 50px;
+	}
+
+    .diary-menu {
+      display: flex;
+      gap: 30px;
+    }
+
+   .diary-menu-item {
+	  display: flex;
+	  flex-direction: column;
+	  align-items: center;
+	  font-size: 26px;
+	  font-family: 'GmarketSansTTFMedium';
+	  color: #4caf50;
+	  width: 136px;
+	  height: 136px;
+	  justify-content: center;
+	  transition: all 0.2s;
+	}
+
+	.diary-menu-item img {
+	  width: auto;
+	  height: 55px;
+	  margin-bottom: 25px;
+	  transition: all 0.2s;
+	}
+
+	.diary-menu-item.active {
+	  background-color: #60af46;
+	  color: white;
+	  border-radius: 20px;
+	}
+
+	.diary-menu-item.active img {
+	  width: auto;
+	  height: 55px;
+	  filter: brightness(0) invert(1); /* 흰색처럼 보이게 하는 효과 */
+	}
+
+
+    .diary-search {
+      background-color: white;
+      border-radius: 29px;
+      padding: 5px 15px;
+      display: flex;
+      align-items: center;
+      width: 592px;
+	  height: 75px;
+    }
+
+    .diary-search input {
+      border: none;
+      outline: none;
+      flex: 1;
+      font-size: 14px;
+      font-family: 'GmarketSansTTFLight';
+    }
+
+    .diary-search img {
+      width: 40px;
+      height: 40px;
+	  margin-right: 30px;
+    }
+
+	.sort-wrapper {
+	  position: relative;
+	  display: flex;
+	  justify-content: flex-end;
+	  flex-direction: column;
+	  align-items: flex-end;
+	  width: 1550px;
+	  margin: 60px auto 0 auto;
+	  
+	}
+	.sort-selected {
+	  display: flex;
+	  align-items: center;
+	  font-size: 28px;
+	  color: #333;
+	  cursor: pointer;
+	  padding: 8px 14px;
+	  background-color: #fff;
+	  border-radius: 8px;
+	  transition: 0.2s;
+	  font-family: 'GmarketSansTTFMedium';
+	}
+
+	.sort-selected:hover {
+	  background-color: #f5f5f5;
+	}
+	
+	.sort-selected .sort-arrow {
+	  width: 16px;
+	  height: 16px;
+	  margin-left: 15px;
+	  font-family: 'GmarketSansTTFMedium';
+	}
+
+	.sort-dropdown {
+	  display: none;
+	  flex-direction: column;
+	  margin-top: 8px;
+	  background-color: white;
+	  border: 1px solid #ddd;
+	  border-radius: 10px;
+	  padding: 6px 0;
+	  z-index: 10;
+	  position: absolute;
+	  top: 45px;
+	  right: 0;
+	  min-width: 100px;
+	}
+
+	.sort-dropdown .sort-option {
+	  font-size: 28px;
+	  padding: 10px 16px;
+	  cursor: pointer;
+	  color: #555;
+	  transition: 0.2s;
+	  font-family: 'GmarketSansTTFMedium';
+	}
+	.sort-dropdown .sort-option:hover {
+	  background-color: #f1f6ef;
+	}
+
+	.sort-dropdown .sort-option.active {
+	  color: #000;
+	}
+
+	.bottom-bar {
+	  display: flex;
+	  justify-content: space-between;
+	  align-items: center;
+	  width: 1500px;
+	  margin: 40px auto 80px auto;
+	}
+
+	.pagination {
+		width: 250px;
+		height: 80px;
+	  background-color: #f2f7ef;
+	  border-radius: 43px;
+	  display: flex;
+	  gap: 15px;
+	  margin-left: 50px;
+	  justify-content: center;
+	  align-items: center;
+	}
+
+	.page-btn {
+	  background: none;
+	  border: none;
+	  font-size: 30px;
+	  font-family: 'GmarketSansTTFMedium';
+	  color: #333;
+	  cursor: pointer;
+	  border-radius: 8px;
+	  transition: 0.2s;
+	  text-decoration: none;
+
+	  width: 60px;
+	  height: 60px;
+	  display: inline-flex;
+	  justify-content: center;
+	  align-items: center;
+
+	  padding: 0;             /* 여백 제거 */
+	  line-height: 1;         /* 텍스트 세로 정렬 조정 */
+	  box-sizing: border-box; /* width와 height 안에 padding 포함 */
+	}
+
+
+	.page-btn.active {
+	  background-color: #4caf50;
+	  color: white;
+	  border-radius: 8px;
+	}
+
+	.page-btn:hover:not(.active) {
+	  background-color: #e0eed9;
+	}
+
+	.page-btn.disabled {
+	  pointer-events: none;
+	  opacity: 0.4;
+	}
+
+	.write-btn {
+	  background-color: #4caf50;
+	  color: white;
+	  border: none;
+	  font-size: 30px;
+	  font-family: 'GmarketSansTTFBold';
+	  width:243px;
+	  height: 99px;
+	  border-radius: 43px;
+	  cursor: pointer;
+	  transition: 0.2s;
+	  margin-right: 50px;
+	}
+
+	.write-btn:hover {
+	  background-color: #3f9e41;
+	}
+
+	.content {
+		width: 1405px;
+		height: auto;
+		display: flex; 
+		flex-wrap: wrap; 
+		gap: 40px; 
+		justify-content: flex-start; 
+		align-items: flex-start;
+		margin-top: 80px;
+	}
+	a.content-link {
+		display: block;
+		text-decoration: none;
+		color: inherit;
+		vertical-align: top;  /* 이 줄을 추가해줘 */
+		height: 500px;
+	}
+	.content-detail {
+		width: 440px;
+		height: 500px;
+		border-radius: 30px;
+		background-color: #eef4ea;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+	.content-img {
+		width: 390px;
+		height: 330px;
+		background-color: #fff;
+		border-radius: 30px;
+		margin-top: 20px;
+	}
+	.content-img img {
+		display: block;
+	}
+	.content-subject {
+		font-family: 'GmarketSansTTFMedium';
+		font-size: 38px;
+		text-align: center;
+		padding-top: 30px;
+	    white-space: nowrap;
+	    overflow: hidden;
+	    text-overflow: ellipsis;
+	}
+  </style>
+</head>
+<!--diary-bar-->
+<script>
+  // AJAX로 JSP 조각 불러오기
+  function loadSection(path) {
+    const xhr = new XMLHttpRequest();
+    xhr.overrideMimeType("text/html;charset=EUC-KR");
+    xhr.open("GET", path, true);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        document.getElementById('diary-content').innerHTML = xhr.responseText;
+      }
+    };
+    xhr.send();
+  }
+
+  // 탭 메뉴 & 정렬 드롭다운
+  window.addEventListener('DOMContentLoaded', function () {
+    // 탭 메뉴
+    const menuItems = document.querySelectorAll('.diary-menu-item');
+    const contentBox = document.getElementById('diary-content');
+    menuItems.forEach(item => {
+      item.addEventListener('click', function () {
+        menuItems.forEach(el => el.classList.remove('active'));
+        this.classList.add('active');
+
+        const section = this.dataset.section;
+        loadSection(`section_${section}.jsp`);
+      });
+    });
+
+    // 초기 로딩
+    loadSection('section_idea.jsp');
+
+    // 정렬 드롭다운
+    const sortSelected = document.getElementById('current-sort');
+    const dropdown = document.getElementById('sort-dropdown');
+    const options = document.querySelectorAll('.sort-option');
+
+    sortSelected.addEventListener('click', function () {
+      dropdown.style.display = dropdown.style.display === 'flex' ? 'none' : 'flex';
+    });
+
+    options.forEach(opt => {
+      opt.addEventListener('click', function () {
+        options.forEach(el => el.classList.remove('active'));
+        this.classList.add('active');
+        sortSelected.firstChild.textContent = this.textContent;
+        dropdown.style.display = 'none';
+        console.log("정렬 기준:", this.dataset.sort);
+      });
+    });
+  });
+</script>
+
+
+
+
+<body>
+	
+	<header class="navbar">
+      <a href="main.jsp">
+      <img src="images/logo.png" alt="SuccuBuddy Logo" class="logo">
+      </a>
+      <nav class="nav-menu">
+         <a href="sub1.jsp">다육 세트</a>
+         <a href="sub2.jsp">다육 단품</a>
+         <a href="sub3.jsp">맞춤 다육 추천</a>
+         <a href="sub4.jsp">다육 일기</a>
+         <a href="sub5.jsp">고객센터</a>
+      </nav>
+      <div class="nav-icons">
+         <a href="mypage.jsp"><img src="images/Person.png" alt="사용자"></a>
+         <a href="shopping_list.jsp"><img src="images/cart.png" alt="장바구니"></a>
+         <a href="logout.jsp"><img src="images/logout.png" alt="로그아웃"></a> 
+      </div>
+   </header>
+
+  <div class="container">
+    <div class="container-title">다육일기</div>
+	<!--diary bar-->
+    <div class="diary-bar">
+      <div class="diary-menu">
+		<div class="diary-menu-item" data-section="idea">
+			<img src="images/idea.png" alt="키움백과" data-name="idea">
+			<div>키움백과</div>
+		</div>
+		<div class="diary-menu-item" data-section="question">
+			<img src="images/question.png" alt="궁금사전" data-name="question">
+			<div>궁금톡톡</div>
+		</div>
+		<div class="diary-menu-item active" data-section="market">  <!-- 여기 active 추가 -->
+			<img src="images/market.png" alt="나눔창고" data-name="market">
+			<div>나눔창고</div>
+		</div>
+		<div class="diary-menu-item" data-section="pencil">
+			<img src="images/pencil.png" alt="성장일지" data-name="pencil">
+			<div>성장일지</div>
+		</div>
+      </div>
+      <div class="diary-search">
+        <input type="text">
+        <img src="images/Search.png" alt="검색">
+      </div>
+    </div>
+	<!--인기순,최신순-->
+	<div class="sort-wrapper">
+	  <div class="sort-selected" id="current-sort">
+		인기순
+		<img src="images/arrow-big.png" alt="화살표" class="sort-arrow">
+	  </div>
+	  <div class="sort-dropdown" id="sort-dropdown">
+		<div class="sort-option active" data-sort="popular">인기순</div>
+		<div class="sort-option" data-sort="recent">최신순</div>
+	  </div>
+	   <!-- 콘텐츠 부분 (ajax로 바뀌는 영역) -->
+		<div id="diary-content" class="diary-content"></div>
+	</div>
+
+<center>
+<div class="content">
+<%
+    while (rs.next()) {
+        String title = rs.getString("title");
+        String imgName = rs.getString("image_name");
+%>
+	<a href="sub4_text.jsp?title=<%= java.net.URLEncoder.encode(title, "euc-kr") %>" class="content-link">
+    <div class="content-detail">
+        <div class="content-img">
+            <% if (imgName != null && !imgName.equals("")) { %>
+                <img src="<%= request.getContextPath() %>/uploads/<%= imgName %>" alt="이미지" style="width:390px; height:330px; object-fit: cover; border-radius: 30px;">
+            <% } else { %>
+                <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family: 'GmarketSansTTFMedium'; color:#aaa; font-size: 30px;">
+					이미지 없음
+                </div>
+            <% } %>
+        </div>
+        <div class="content-subject"><%= title %></div>
+    </div>
+	</a>
+<%
+    }
+%>
+</div>
+<%
+    rs.close();
+    pstmt.close();
+    conn.close();
+} catch (Exception e) {
+    e.printStackTrace();
+}
+%>
+</center>
+
+
+<div class="bottom-bar">
+<div class="pagination">
+  <a href="sub4_share.jsp?page=<%= curPage - 1 %>" class="page-btn <%= (curPage == 1 ? "disabled" : "") %>">&lt;</a>
+
+  <% for (int i = 1; i <= totalPages; i++) { %>
+    <a href="sub4_share.jsp?page=<%= i %>" class="page-btn <%= (i == curPage ? "active" : "") %>"><%= i %></a>
+  <% } %>
+
+  <a href="sub4_share.jsp?page=<%= curPage + 1 %>" class="page-btn <%= (curPage == totalPages ? "disabled" : "") %>">&gt;</a>
+</div>
+
+
+  <button class="write-btn" onclick="location.href='sub4_write_modify.jsp'">글쓰기</button>
+
+	</div>
+</div>
+
+<footer class="footer">
+    <div class="footer-left">
+        <span class="brand-name">succubuddy</span>
+    </div>
+    <div class="footer-right">
+	<br>
+        <span>주소 : 충청남도 천안시 서북구 성환읍 대학로 91 | EMAIL : succubuddy@naver.com</span>
+        <span>TEL : 070-022-2026 | &copy; 2025 succubuddy. All Rights Reserved.</span>
+		<br>
+        <span><a href="#">개인정보처리방침</a> | <a href="#">이용약관</a></span>
+    </div>
+</footer>
+
+</body>
+</html>

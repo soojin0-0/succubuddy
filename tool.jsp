@@ -1,0 +1,84 @@
+<%@ page contentType="text/html;charset=euc-kr" %>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리도구</title>
+    <style>
+		@font-face {
+            font-family: 'GmarketSansTTFMedium';
+            src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFBold';
+            src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFLight';
+            src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+        }
+		body {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+		.title {
+			font-family: 'GmarketSansTTFMedium';
+			font-size: 24px;
+			height: 70px;
+		}
+		.title font {
+			color: #7ab863;
+		}
+
+		.img {
+			font-size: 42px;
+			font-family: 'GmarketSansTTFMedium';
+			margin-top: 20px;
+		}
+		.img td {
+			text-align: center;
+			vertical-align: middle
+		}
+		.img td:nth-child(1), .img td:nth-child(3), .img td:nth-child(5) {
+			width: 300px;
+			align-items: center;
+		}
+		.img td:nth-child(2), .img td:nth-child(4) {
+			width: 30px;
+		}
+		.second td {
+			padding-top: 20px;
+		}
+		#name {
+			font-family: 'GmarketSansTTFLight';
+			font-size: 22px;
+		}
+	</style>
+</head>
+<body>
+	<center>
+	<div class="title">
+	 다육과 함께하는 <font>필수 도구 3종을 </font>제공합니다
+	</div>
+	<table class="img">
+		<tr>
+			<td><img src="images/novice1.jpg"></td>
+			<td>+</td>
+			<td><img src="images/novice2.jpg"></td>
+			<td>+</td>
+			<td><img src="images/novice3.jpg"></td>
+		</tr>
+		<tr class="second">
+			<td id="name">미니 삽</td>
+			<td></td>
+			<td id="name">분무기</td>
+			<td></td>
+			<td id="name">화분</td>
+	</div>
+	</center>
+</body>
+</html>

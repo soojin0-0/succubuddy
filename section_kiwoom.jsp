@@ -1,0 +1,570 @@
+<%@ page contentType="text/html;charset=euc-kr" pageEncoding="euc-kr" %>
+<%@ page import="java.sql.*, java.util.*, java.text.SimpleDateFormat, java.net.*" %>
+<%
+String loginId = (String) session.getAttribute("sid");
+if (loginId == null || loginId.equals("")) {
+    response.sendRedirect("login.jsp");
+    return;
+}
+
+boolean isAdmin = "admin".equalsIgnoreCase(loginId);
+
+Connection conn = null;
+PreparedStatement ps = null;
+ResultSet rs = null;
+List<Map<String, String>> posts = new ArrayList<>();
+
+int currentPage = 1;
+int pageSize = 7;
+int totalPage = 1;
+int totalCount = 0;
+
+String pageParam = request.getParameter("page");
+if (pageParam != null && pageParam.matches("\\d+")) {
+    currentPage = Integer.parseInt(pageParam);
+    if (currentPage <= 0) currentPage = 1;
+}
+
+String selectedCategory = request.getParameter("category");
+String selectedSubcategory = request.getParameter("subcategory");
+String selectedSubcategoryIdParam = request.getParameter("subcategory_id");
+
+if ((selectedCategory == null || selectedCategory.trim().equals("")) &&
+    (selectedSubcategory == null || selectedSubcategory.trim().equals("")) &&
+    selectedSubcategoryIdParam != null && selectedSubcategoryIdParam.matches("\\d+")) {
+    int subcategoryId = Integer.parseInt(selectedSubcategoryIdParam);
+    try {
+        Class.forName("org.gjt.mm.mysql.Driver");
+        conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/succu", "multi", "abcd");
+        ps = conn.prepareStatement("SELECT c.category_name, s.subcategory_name FROM sub4_subcategory s JOIN sub4_category c ON s.category_id = c.category_id WHERE s.subcategory_id = ?");
+        ps.setInt(1, subcategoryId);
+        rs = ps.executeQuery();
+        if (rs.next()) {
+            selectedCategory = rs.getString("category_name");
+            selectedSubcategory = rs.getString("subcategory_name");
+        }
+        rs.close();
+        ps.close();
+        conn.close();
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
+List<String> allCategories = new ArrayList<>();
+List<String> allSubcategories = new ArrayList<>();
+try {
+    if (conn == null || conn.isClosed()) {
+        Class.forName("org.gjt.mm.mysql.Driver");
+        conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/succu", "multi", "abcd");
+    }
+    String categorySql = "SELECT DISTINCT category_name FROM sub4_category";
+    ps = conn.prepareStatement(categorySql);
+    rs = ps.executeQuery();
+    while (rs.next()) {
+        allCategories.add(rs.getString("category_name"));
+    }
+    rs.close();
+    ps.close();
+
+    String subcategorySql = "SELECT DISTINCT subcategory_name FROM sub4_subcategory WHERE category_id = (SELECT category_id FROM sub4_category WHERE category_name = ?)";
+    ps = conn.prepareStatement(subcategorySql);
+    ps.setString(1, selectedCategory);
+    rs = ps.executeQuery();
+    while (rs.next()) {
+        allSubcategories.add(rs.getString("subcategory_name"));
+    }
+    rs.close();
+    ps.close();
+
+    String countSql = "SELECT COUNT(*) FROM sub4_items i JOIN sub4_subcategory s ON i.subcategory_id = s.subcategory_id JOIN sub4_category c ON s.category_id = c.category_id WHERE 1=1";
+    if (selectedCategory != null && !selectedCategory.trim().equals("")) {
+        countSql += " AND c.category_name = ?";
+    }
+    if (selectedSubcategory != null && !selectedSubcategory.trim().equals("")) {
+        countSql += " AND s.subcategory_name = ?";
+    }
+    ps = conn.prepareStatement(countSql);
+    int paramIdx = 1;
+    if (selectedCategory != null && !selectedCategory.trim().equals("")) {
+        ps.setString(paramIdx++, selectedCategory);
+    }
+    if (selectedSubcategory != null && !selectedSubcategory.trim().equals("")) {
+        ps.setString(paramIdx++, selectedSubcategory);
+    }
+    rs = ps.executeQuery();
+    if (rs.next()) {
+        totalCount = rs.getInt(1);
+        totalPage = (int) Math.ceil((double) totalCount / pageSize);
+    }
+    rs.close();
+    ps.close();
+
+    int offset = (currentPage - 1) * pageSize;
+
+    String listSql = "SELECT i.item_id, i.item_title, '관리자' AS user_id, c.category_name, s.subcategory_name, i.reg_date, i.views, i.image_name " +
+                     "FROM sub4_items i " +
+                     "JOIN sub4_subcategory s ON i.subcategory_id = s.subcategory_id " +
+                     "JOIN sub4_category c ON s.category_id = c.category_id WHERE 1=1";
+    if (selectedCategory != null && !selectedCategory.trim().equals("")) {
+        listSql += " AND c.category_name = ?";
+    }
+    if (selectedSubcategory != null && !selectedSubcategory.trim().equals("")) {
+        listSql += " AND s.subcategory_name = ?";
+    }
+    listSql += " ORDER BY i.reg_date DESC LIMIT ?, ?";
+
+    ps = conn.prepareStatement(listSql);
+    paramIdx = 1;
+    if (selectedCategory != null && !selectedCategory.trim().equals("")) {
+        ps.setString(paramIdx++, selectedCategory);
+    }
+    if (selectedSubcategory != null && !selectedSubcategory.trim().equals("")) {
+        ps.setString(paramIdx++, selectedSubcategory);
+    }
+    ps.setInt(paramIdx++, offset);
+    ps.setInt(paramIdx, pageSize);
+
+    rs = ps.executeQuery();
+    while (rs.next()) {
+        int itemId = rs.getInt("item_id");
+        String title = rs.getString("item_title");
+
+        boolean isDuplicate = false;
+        for (Map<String, String> existingPost : posts) {
+            if (existingPost.get("title").equals(title)) {
+                isDuplicate = true;
+                break;
+            }
+        }
+
+        if (!isDuplicate) {
+            Map<String, String> post = new HashMap<>();
+            post.put("item_id", String.valueOf(itemId));
+            post.put("title", title);
+            post.put("writer", rs.getString("user_id"));
+            post.put("regDate", new SimpleDateFormat("yyyy.MM.dd").format(rs.getDate("reg_date")));
+            // 조회수 실시간 반영이 되도록 조회수 증가 이후 다시 select
+            PreparedStatement viewStmt = conn.prepareStatement("SELECT views FROM sub4_items WHERE item_id = ?");
+            viewStmt.setInt(1, itemId);
+            ResultSet viewRs = viewStmt.executeQuery();
+            if (viewRs.next()) {
+                post.put("views", viewRs.getString("views"));
+            } else {
+                post.put("views", "0");
+            }
+            viewRs.close();
+            viewStmt.close();
+            post.put("image", rs.getString("image_name"));
+            post.put("category", rs.getString("category_name"));
+            post.put("subcategory", rs.getString("subcategory_name"));
+            posts.add(post);
+        }
+    }
+
+    rs.close();
+    ps.close();
+    conn.close();
+
+} catch (Exception e) {
+    e.printStackTrace();
+}
+%>
+<!-- 이하 생략: 나머지 HTML은 그대로 유지 -->
+
+<style>
+	 a {
+			text-decoration: none;
+			color: black;
+		}
+	  @font-face { font-family: 'GmarketSansTTFMedium'; src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype'); }
+		@font-face { font-family: 'GmarketSansTTFBold'; src: url('fonts/GmarketSansTTFBold.ttf') format('truetype'); }
+		@font-face { font-family: 'GmarketSansTTFLight'; src: url('fonts/GmarketSansTTFLight.ttf') format('truetype'); }
+		@font-face { font-family: 'RixInooAriDuriPro'; src: url('fonts/RixInooAriDuri_Pro Regular.otf') format('opentype'); font-weight: normal; font-style: normal; }
+
+	.pagination-write-wrapper {
+	  display: flex;
+	  justify-content: space-between;
+	  align-items: center;
+	  width: 1550px;
+	  margin: 40px auto 80px auto;
+	}
+
+	.pagination {
+	  background-color: #f2f7ef;
+	  padding: 10px 20px;
+	  border-radius: 43px;
+	  display: flex;
+	  gap: 15px;
+	}
+
+	.page-btn {
+	  background: none;
+	  border: none;
+	  font-size: 20px;
+	  font-family: 'GmarketSansTTFMedium';
+	  color: #333;
+	  cursor: pointer;
+	  padding: 6px 10px;
+	  border-radius: 8px;
+	  transition: 0.2s;
+	  text-decoration: none;
+	}
+
+	.page-btn.active {
+	  background-color: #4caf50;
+	  color: white;
+	}
+
+	.page-btn:hover:not(.active) {
+	  background-color: #e0eed9;
+	}
+
+	.write-btn {
+	  background-color: #4caf50;
+	  color: white;
+	  border: none;
+	  padding: 10px 24px;
+	  font-size: 30px;
+	  font-family: 'GmarketSansTTFBold';
+	  width: 243px;
+	  height: 99px;
+	  border-radius: 43px;
+	  cursor: pointer;
+	  transition: 0.2s;
+	}
+
+	.write-btn:hover {
+	  background-color: #3f9e41;
+	}
+
+  
+    .idea-section-wrapper {
+      width: 1600px;
+      margin: 0 auto;
+      background-color: #f1f6ed;
+      border-radius: 20px;
+      padding: 30px 0;
+      box-sizing: border-box;
+      margin-left: -30px;
+    }
+    .board-wrapper { width: 1600px; margin: 0 auto; }
+    .board-header-wrapper {
+      width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      font-size: 28px;
+      padding: 30px 40px;
+      background-color: white;
+      font-family: 'GmarketSansTTFMedium';
+    }
+    .board-header-wrapper .col-title { flex: 2; padding-left: 40px; }
+    .board-header-wrapper .col-views { flex: 1; text-align: center; padding-left: 150px; }
+    .board-header-wrapper .col-writer { flex: 1.6; text-align: center; }
+    .board-header-wrapper .col-date { flex: 1.2; text-align: center; }
+
+    .board-line {
+      width: 1500px;
+      height: 2px;
+      background-color: #67b54d;
+      margin: 0 auto;
+    }
+    .board-card {
+	  display: flex;
+	  align-items: center;
+	  justify-content: space-between;
+	  padding: 30px 40px;
+	  box-sizing: border-box;
+	  min-height: 200px; /*  높이 고정 */
+	}
+    .board-card .title-box {
+      display: flex;
+      align-items: center;
+      flex: 2;
+      gap: 20px;
+      font-size: 32px;
+      color: #333;
+      padding-left: 20px;
+      font-family: 'GmarketSansTTFLight';
+    }
+    .title-box {
+	  font-size: 32px;
+	  color: #333;
+	  font-family: 'GmarketSansTTFLight';
+	  align-items: center;
+	  box-sizing: border-box;
+	  padding-left: 20px;
+	}
+
+	.title-box.with-image {
+	  display: flex;
+	  gap: 20px;
+	}
+
+	.title-box.no-image {
+	  display: block;
+	}
+
+	.image-box {
+	  width: 150px;
+	  height: 150px;
+	  background-color: #67b54d;
+	  overflow: hidden;
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+	  margin-left: 10px;
+	}
+
+	.image-box img {
+	  width: 100%;
+	  height: 100%;
+	  object-fit: cover;
+	  display: block;
+	}
+
+    .views {
+      flex: 0.9;
+      text-align: center;
+      font-size: 32px;
+      font-family: 'GmarketSansTTFMedium';
+    }
+    .view-count-box {
+      background-color: #f5b100;
+      color: white;
+      border-radius: 20px;
+      padding: 9px 15px;
+      display: inline-block;
+    }
+    .writer, .date {
+      flex: 1;
+      text-align: center;
+      font-size: 34px;
+      color: #666;
+      font-family: 'GmarketSansTTFLight';
+    }
+	.image-box.no-bg {
+	  background-color: transparent !important;
+	}
+
+	
+	.pagination-write-wrapper {
+	  display: flex;
+	  justify-content: space-between;
+	  align-items: center;
+	  width: 1550px;
+	  margin: 40px auto 80px auto;
+	}
+
+	.pagination {
+	  background-color: #f2f7ef;
+	  padding: 10px 20px;
+	  border-radius: 43px;
+	  display: flex;
+	  gap: 15px;
+	}
+
+	.page-btn {
+	  background: none;
+	  border: none;
+	  font-size: 20px;
+	  font-family: 'GmarketSansTTFMedium';
+	  color: #333;
+	  cursor: pointer;
+	  padding: 6px 10px;
+	  border-radius: 8px;
+	  transition: 0.2s;
+	  text-decoration: none;
+	}
+
+	.page-btn.active {
+	  background-color: #4caf50;
+	  color: white;
+	}
+
+	.page-btn:hover:not(.active) {
+	  background-color: #e0eed9;
+	}
+
+	.write-btn {
+	  background-color: #4caf50;
+	  color: white;
+	  border: none;
+	  padding: 10px 24px;
+	  font-size: 30px;
+	  font-family: 'GmarketSansTTFBold';
+	  width: 243px;
+	  height: 99px;
+	  border-radius: 43px;
+	  cursor: pointer;
+	  transition: 0.2s;
+	}
+
+	.write-btn:hover {
+	  background-color: #3f9e41;
+	}
+	
+
+	.sort-wrapper {
+      position: relative;
+      display: flex;
+      justify-content: flex-end;
+      flex-direction: column;
+      align-items: flex-end;
+      width: 1550px;
+      margin: 60px auto 0 auto;
+    }
+    .sort-selected {
+      display: flex;
+      align-items: center;
+      font-size: 28px;
+      color: #333;
+      cursor: pointer;
+      padding: 8px 14px;
+      background-color: #fff;
+      border-radius: 8px;
+      transition: 0.2s;
+      font-family: 'GmarketSansTTFMedium';
+      margin-bottom: 76px;
+    }
+    .sort-selected:hover {
+      background-color: #f5f5f5;
+    }
+    .sort-selected .sort-arrow {
+      width: 16px;
+      height: 16px;
+      margin-left: 15px;
+    }
+    .sort-dropdown {
+      display: none;
+      flex-direction: column;
+      margin-top: 8px;
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 6px 0;
+      z-index: 10;
+      position: absolute;
+      top: 45px;
+      right: 0;
+      min-width: 100px;
+    }
+    .sort-dropdown .sort-option {
+      font-size: 28px;
+      padding: 10px 16px;
+      cursor: pointer;
+      color: #555;
+      font-family: 'GmarketSansTTFMedium';
+    }
+    .sort-dropdown .sort-option:hover {
+      background-color: #f1f6ef;
+    }
+    .sort-dropdown .sort-option.active {
+      color: #000;
+    }
+</style>
+
+
+
+<div class="board-header-wrapper">
+  <div class="col-title">내용</div>
+  <div class="col-views">조회수</div>
+  <div class="col-writer">작성자</div>
+  <div class="col-date">날짜</div>
+</div>
+
+<div class="board-wrapper">
+  <div class="idea-section-wrapper">
+    <% boolean isFirst = true;
+       for (Map<String, String> post : posts) {
+          String title = post.get("title");
+          String writer = post.get("writer");
+          String views = post.get("views");
+          String regDate = post.get("regDate");
+          String imageName = post.get("image");
+          String category = post.get("category");
+          boolean isPng = imageName != null && imageName.toLowerCase().endsWith(".png");
+    %>
+    <% if (!isFirst) { %><div class="board-line"></div><% } else { isFirst = false; } %>
+    <div class="board-card">
+      <div class="title-box <%= (imageName != null && !imageName.trim().equals("")) ? "with-image" : "" %>">
+
+			<% if (imageName != null && !imageName.trim().equals("")) { %>
+		  <div class="image-box <%= isPng ? "no-bg" : "" %>">
+			<img src="<%= request.getContextPath() %>/uploads/<%= imageName %>" alt="썸네일">
+		  </div>
+		<% } %>
+
+
+
+        <div class="title-text">
+		<a href="kiwoom_detail.jsp?item_id=<%= post.get("item_id") %>"><%= post.get("title") %></a>
+        </div>
+      </div>
+
+      <div class="views"><span class="view-count-box"><%= views %></span></div>
+      <div class="writer"><%= writer %></div>
+      <div class="date"><%= regDate %></div>
+    </div>
+    <% } %>
+    <div class="board-line"></div>
+  </div>
+</div>
+
+<div class="pagination-write-wrapper">
+  <div class="pagination">
+    <% if (currentPage > 1) { %>
+      <a href="?page=<%= currentPage - 1 %>&category=<%= URLEncoder.encode(selectedCategory != null ? selectedCategory : "", "euc-kr") %>&subcategory=<%= URLEncoder.encode(selectedSubcategory != null ? selectedSubcategory : "", "euc-kr") %>" class="page-btn">&lt;</a>
+    <% } %>
+    <% int pageBlock = 7;
+       int startPage = ((currentPage - 1) / pageBlock) * pageBlock + 1;
+       int endPage = Math.min(startPage + pageBlock - 1, totalPage);
+       for (int i = startPage; i <= endPage; i++) { %>
+      <a href="?page=<%= i %>&category=<%= URLEncoder.encode(selectedCategory != null ? selectedCategory : "", "euc-kr") %>&subcategory=<%= URLEncoder.encode(selectedSubcategory != null ? selectedSubcategory : "", "euc-kr") %>"
+         class="page-btn <%= i == currentPage ? "active" : "" %>"><%= i %></a>
+    <% } %>
+    <% if (currentPage < totalPage) { %>
+      <a href="?page=<%= currentPage + 1 %>&category=<%= URLEncoder.encode(selectedCategory != null ? selectedCategory : "", "euc-kr") %>&subcategory=<%= URLEncoder.encode(selectedSubcategory != null ? selectedSubcategory : "", "euc-kr") %>" class="page-btn">&gt;</a>
+    <% } %>
+  </div>
+
+  <% if (isAdmin) { %>
+    <button class="write-btn" onclick="location.href='sub4_write.jsp'">글쓰기</button>
+  <% } %>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const links = document.querySelectorAll(".board-card .title-text a");
+  links.forEach(link => {
+    link.addEventListener("click", async function (e) {
+      e.preventDefault();
+      const urlParams = new URL(this.href, window.location.href).searchParams;
+      const itemId = urlParams.get("item_id");
+
+      try {
+        // 조회수 증가 및 새로운 조회수 받아오기
+        const res = await fetch("increase_view.jsp?item_id=" + itemId);
+        const newViews = await res.text();
+
+        // 조회수 DOM 갱신
+        const viewSpan = this.closest(".board-card").querySelector(".view-count-box");
+        if (viewSpan) viewSpan.textContent = newViews;
+
+        // 상세 페이지 로딩
+        const detailRes = await fetch("kiwoom_detail.jsp?item_id=" + itemId);
+        const html = await detailRes.text();
+        const contentBox = document.getElementById("diary-content");
+        if (contentBox) {
+          contentBox.innerHTML = html;
+        } else {
+          document.body.innerHTML = html;
+        }
+      } catch (err) {
+        console.error("상세 보기 로딩 실패:", err);
+      }
+    });
+  });
+});
+</script>

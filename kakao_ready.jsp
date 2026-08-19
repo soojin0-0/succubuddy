@@ -1,0 +1,105 @@
+<%@ page contentType="text/html;charset=euc-kr" pageEncoding="euc-kr" %>
+<%@ page import="java.io.*, java.net.*, java.sql.*, java.util.*, org.json.simple.*, org.json.simple.parser.*" %>
+
+<%
+request.setCharacterEncoding("euc-kr");
+
+String userId = (String) session.getAttribute("sid");
+
+if (userId == null || userId.equals("")) {
+    out.println("<script>alert('로그인이 필요합니다.'); location.href='login.jsp';</script>");
+    return;
+}
+
+// 파라미터 받기
+String[] productIds = request.getParameterValues("product_ids");
+String[] quantities = request.getParameterValues("quantities");
+String paymentMethod = request.getParameter("payment_method");
+String usedCoupon = request.getParameter("usedCoupon");
+String usedPoints = request.getParameter("usedPoints");
+String finalPrice = request.getParameter("finalPrice");
+
+if (productIds == null || quantities == null || productIds.length == 0 || quantities.length == 0) {
+    out.println("<script>alert('상품 정보가 없습니다.'); history.back();</script>");
+    return;
+}
+if (paymentMethod == null || paymentMethod.equals("") || finalPrice == null || finalPrice.equals("")) {
+    out.println("<script>alert('결제 정보가 올바르지 않습니다.'); history.back();</script>");
+    return;
+}
+
+// item_name 구성
+String itemName = "";
+if (productIds.length == 1) {
+    itemName = productIds[0];
+} else {
+    itemName = productIds[0] + " 외 " + (productIds.length - 1) + "건";
+}
+
+try {
+    // 카카오페이 결제 준비 요청
+    URL url = new URL("https://open-api.kakaopay.com/online/v1/payment/ready");
+    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    conn.setRequestMethod("POST");
+    conn.setRequestProperty("Authorization", "SECRET_KEY DEV6744AB1DFFD5F846D5EFCFC74AD0F03FA0A59"); // 실 서비스 키로 변경
+    conn.setRequestProperty("Content-Type", "application/json");
+    conn.setDoOutput(true);
+
+    JSONObject json = new JSONObject();
+    json.put("cid", "TC0ONETIME");
+    json.put("partner_order_id", "ORD" + System.currentTimeMillis());
+    json.put("partner_user_id", userId);
+    json.put("item_name", itemName);
+    json.put("quantity", 1);
+    json.put("total_amount", Integer.parseInt(finalPrice));
+    json.put("tax_free_amount", 0);
+
+    //  결제 승인 후 바로 성공 페이지로 가게 설정
+    json.put("approval_url", "http://localhost:8080/succu/shopping_success.jsp");
+    json.put("cancel_url", "http://localhost:8080/succu/shopping_order_payment.jsp");
+    json.put("fail_url", "http://localhost:8080/succu/shopping_order_payment.jsp");
+
+    OutputStream os = conn.getOutputStream();
+    os.write(json.toString().getBytes("UTF-8"));
+    os.flush();
+    os.close();
+
+    // 응답 처리
+    int responseCode = conn.getResponseCode();
+    InputStream responseStream = (responseCode == 200) ? conn.getInputStream() : conn.getErrorStream();
+    BufferedReader reader = new BufferedReader(new InputStreamReader(responseStream, "UTF-8"));
+    StringBuilder sb = new StringBuilder();
+    String line;
+    while ((line = reader.readLine()) != null) {
+        sb.append(line);
+    }
+    reader.close();
+
+    JSONParser parser = new JSONParser();
+    JSONObject res = (JSONObject) parser.parse(sb.toString());
+
+    String tid = (String) res.get("tid");
+    String nextRedirectUrl = (String) res.get("next_redirect_pc_url");
+
+    // 세션에 저장
+    session.setAttribute("tid", tid);
+    session.setAttribute("order_id", json.get("partner_order_id"));
+    session.setAttribute("product_ids", productIds);
+    session.setAttribute("quantities", quantities);
+    session.setAttribute("usedPoints", usedPoints);
+    session.setAttribute("usedCoupon", usedCoupon);
+    session.setAttribute("finalPrice", finalPrice);
+    session.setAttribute("payment_method", paymentMethod);
+
+    // 카카오 결제창으로 이동
+    response.sendRedirect(nextRedirectUrl);
+
+} catch (Exception e) {
+    out.println("<script>alert('카카오페이 준비 중 오류 발생: " + e.getMessage().replace("'", "") + "'); history.back();</script>");
+
+    // 디버깅용 출력
+    StringWriter sw = new StringWriter();
+    e.printStackTrace(new PrintWriter(sw));
+    out.println("<pre>" + sw.toString() + "</pre>");
+}
+%>

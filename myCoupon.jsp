@@ -1,0 +1,439 @@
+<%@ page contentType="text/html;charset=euc-kr" %>
+<%@ page import="java.sql.*" %>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마이쿠폰</title>
+    <style>
+		a {
+			text-decoration: none;
+			color: black;
+		}
+      	@font-face {
+			font-family: 'GmarketSansTTFMedium';
+			src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+		}
+			
+		@font-face {
+			font-family: 'GmarketSansTTFBold';
+			src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+		}
+			
+		@font-face {
+			font-family: 'GmarketSansTTFLight';
+			src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+		}
+		@font-face {
+			font-family: 'RixInooAriDuriPro';  /* 폰트 이름 지정 */
+			src: url('fonts/RixInooAriDuri_Pro Regular.otf')  format('opentype'); /* OTF 파일은 'opentype' 지정 */
+			font-weight: normal;
+			font-style: normal;
+		}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1920px;
+            max-width: 100%; /* 화면 크기에 맞춰 자동 조정 */
+            overflow-x: hidden;
+        }
+
+		   .navbar {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 82px 150px;
+			width: 1920px;
+			margin: 0 auto;
+			margin-bottom: 20px; /* 네비게이션 아래 여백 추가 */
+		}
+
+		.logo {
+			display: block;
+			width: 300px;
+			height: 56px;
+			margin-left: -30px;
+			margin-right: 20px;
+		}
+
+		.nav-menu {
+			display: flex;
+			align-items: center;
+			gap: 80px;
+		}
+
+		.nav-menu a {
+			text-decoration: none;
+			color: black;
+			font-size: 26px;
+			font-weight: 550;
+			font-family: 'GmarketSansTTFMedium';
+			margin-top: 12px;
+		}
+
+		.nav-icons {
+			display: flex;
+			align-items: center;
+			gap: 35px; /* 아이콘 및 로그인 간격 */
+			margin-top: 10px; /* 아이콘과 로그인 위치 조정 */
+			margin-left: 33px;
+		}
+
+		/* 아이콘 크기 조정 */
+		.nav-icons img {
+			width: 40px;
+			height: 40px;
+		}
+
+		/* 로그아웃 링크 스타일 */
+		.nav-login {
+			text-decoration: none;
+			font-size: 24px;
+			font-family: 'GmarketSansTTFMedium';
+			color: black;
+			margin-top:10px;
+		}
+
+        p {
+            font-family: 'GmarketSansTTFLight';
+        }
+
+        h2 {
+            font-family: 'GmarketSansTTFBold';
+        }
+
+        h6 {
+            font-family: 'GmarketSansTTFMedium';
+        }
+
+		/*푸터*/
+       .footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 1920px;
+            height: 283px;
+            padding: 0 150px; /* 왼쪽과 오른쪽 패딩 조정 */
+            background-color: #60af46;
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .footer-left {
+            font-size: 50px;
+            font-family: 'RixInooAriDuriPro'; /* Medium font 적용 */
+            margin-left: 50px;
+            color: #ffffff;
+        }
+
+        .footer-right {
+            font-size: 18px;
+            color: #ffffff;
+            margin-left: 130px;
+            font-family: 'GmarketSansTTFLight'; /* Light font 적용 */
+        }
+
+        .footer-right span {
+            margin-bottom: 10px;
+        }
+
+        .footer-right a {
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+		/* 쿠폰 */
+		.title {
+			font-size: 28px;
+			width: 1100px;
+			height: 70px;
+			font-family: 'GmarketSansTTFMedium';
+		}
+
+		.title td {
+			border: none;
+			border-bottom: 2px solid #000;
+			padding-left: 5px;
+			padding-bottom: 10px;
+		}
+
+		 /* 쿠폰 컨테이너 */
+        .coupon-container {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr); /* 가로 3개 */
+			grid-template-rows: repeat(2, auto); /* 세로 2줄 */
+			gap: 40px; /* 쿠폰 간격 */
+			max-width: 960px; /* 한 줄에 3개 배치되도록 */
+			margin: 40px auto;
+		}
+
+        /* 쿠폰 카드 */
+        .coupon {
+            width: 300px;
+			height: 170px;
+			border: 2px solid #717171;
+			text-align: left;
+			padding: 15px;
+        }
+
+		.discount {
+			width: 230px;
+			font-size: 22px;
+			margin-top: 20px;
+			margin-left: 17px;
+			border-bottom: 2px solid #d1d1d1;
+			font-family: 'GmarketSansTTFBold';
+		}
+		.coupon-name {
+			width: 256px;
+			font-size: 20px;
+			margin-top: 10px;
+			margin-left: 20px;
+			font-family: 'GmarketSansTTFMedium';
+		}
+		.expiry-date {
+			width: 256px;
+			font-size: 16px;
+			margin-top: 15px;
+			margin-left: 20px;
+			color: #a9a9a9;
+			font-family: 'GmarketSansTTFLight';
+		}
+
+		/* 페이지네이션 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+			text-align: center;
+            gap: 10px;
+			font-size: 24px;
+			font-family: 'GmarketSansTTFLight';
+        }
+
+		.pagination a {
+            padding: 8px 15px;
+            color: black;
+            font-size: 24px;
+			margin-bottom: 109px;
+
+			display: inline-block;
+			width: 40px;
+			height: 40px;
+			line-height: 26px;
+			text-align: center;
+			border-radius: 50%;
+			transition: 0.3s ease-in-out; /* 부드러운 효과 */
+        }
+		.pagination a.active {
+			font-weight: bold;
+			background-color: #7ab863;
+			color: white;
+			border: 1px solid #7ab863;
+		}
+
+		/* 이전, 다음 버튼 */
+		.pagination a:hover {
+			background-color: #ddd;
+			border-color: #999;
+			transform: scale(1.1);
+		}
+		.noCoupon {
+			width: 1100px;
+			font-size: 24px;
+			margin-top: 40px;
+			margin-left: -70px;
+			text-align: center;
+		}
+</style>
+</head>
+<body>
+   <header class="navbar">
+		<a href="main.jsp">
+		<img src="images/logo.png" alt="SuccuBuddy Logo" class="logo">
+		</a>
+		<nav class="nav-menu">
+			<a href="sub1.jsp">다육 세트</a>
+			<a href="sub2.jsp">다육 단품</a>
+			<a href="sub3.jsp">맞춤 다육 추천</a>
+			<a href="sub4.jsp">다육 탐구 생활</a>
+			<a href="sub5.jsp">고객센터</a>
+		</nav>
+
+
+
+<%
+    String sid = (String) session.getAttribute("sid"); // 세션에서 ID 가져오기
+
+    if (sid == null) { // 로그인되지 않았을 경우
+%>
+        <script>
+            alert("[로그인이 필요합니다]");
+            location.href = "login.jsp"; // 로그인 페이지로 이동
+        </script>
+<%
+        return; // 아래 코드 실행 방지
+    }
+%>
+<%
+    String loggedInUser = (String) session.getAttribute("sid");
+    if (loggedInUser != null) {
+        out.println("<script>console.log('로그인된 유저 ID: " + loggedInUser + "');</script>");
+    } else {
+        out.println("<script>console.log('세션이 없음 (로그인 필요)');</script>");
+    }
+%>
+
+		<div class="nav-icons">
+			<a href="mypage.jsp"><img src="images/Person.png" alt="사용자"></a>
+			<a href="shopping_list.jsp"><img src="images/cart.png" alt="장바구니"></a>
+			<a href="logout.jsp"><img src="images/logout.png" alt="로그아웃"></a> 
+		</div>
+	</header>
+<%
+    // 세션에서 로그인된 사용자 ID 가져오기
+    String userId = (String) session.getAttribute("sid");
+    if (userId == null) {
+        response.sendRedirect("login.jsp");
+        return;
+    }
+
+    // 페이지 번호 가져오기 (기본값: 1)
+    int currentPage = 1; // 'page' 대신 'currentPage' 사용
+    if (request.getParameter("page") != null) {
+        currentPage = Integer.parseInt(request.getParameter("page"));
+    }
+
+    // 한 페이지당 쿠폰 최대 개수 (6개)
+    int couponsPerPage = 6;
+    int offset = (currentPage - 1) * couponsPerPage;
+
+    // DB 연결 정보
+    String DB_URL = "jdbc:mysql://localhost:3306/succu";
+    String DB_ID = "multi";
+    String DB_PASSWORD = "abcd";
+
+    Connection con = null;
+    PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    int totalCoupons = 0;
+
+    try {
+        Class.forName("org.gjt.mm.mysql.Driver");
+        con = DriverManager.getConnection(DB_URL, DB_ID, DB_PASSWORD);
+
+        // 전체 쿠폰 개수 조회
+        String countQuery = "SELECT COUNT(*) FROM coupon WHERE user_id = ?";
+        pstmt = con.prepareStatement(countQuery);
+        pstmt.setString(1, userId);
+        rs = pstmt.executeQuery();
+        if (rs.next()) {
+            totalCoupons = rs.getInt(1);
+        }
+        rs.close();
+        pstmt.close();
+
+        // 현재 페이지의 쿠폰 조회
+        String sql = "SELECT coupon_name, discount, expiry_date FROM coupon WHERE user_id = ? LIMIT ? OFFSET ?";
+        pstmt = con.prepareStatement(sql);
+        pstmt.setString(1, userId);
+        pstmt.setInt(2, couponsPerPage);
+        pstmt.setInt(3, offset);
+        rs = pstmt.executeQuery();
+%>
+
+<center>
+	<table class="title">
+		<tr><td>쿠폰</td></tr>
+	</table>
+
+<div class="coupon-container">
+    <%
+        boolean hasCoupons = false; // 쿠폰 존재 여부 확인
+        while (rs.next()) {
+            hasCoupons = true;
+    %>
+        <div class="coupon">
+            <table class="discount">
+                <tr><td><%= rs.getInt("discount") %>%</td></tr>
+            </table>
+            <div class="coupon-name"><%= rs.getString("coupon_name") %></div>
+            <div class="expiry-date"><%= rs.getString("expiry_date") %>까지</div>
+        </div>
+    <%
+        }
+        if (!hasCoupons) {
+    %>
+        <p class="noCoupon">사용 가능한 쿠폰이 없습니다.</p>
+    <%
+        }
+        rs.close();
+        pstmt.close();
+        con.close();
+    } catch (Exception e) {
+        e.printStackTrace();
+        out.println("오류 발생: " + e.getMessage());
+    }
+    %>
+    </div>
+
+<!-- 페이지네이션 -->
+    <div class="pagination">
+    <%
+        int totalPages = (int) Math.ceil((double) totalCoupons / couponsPerPage);
+
+        // 이전 페이지 버튼
+        if (currentPage > 1) {
+    %>
+        <a href="myCoupon.jsp?page=<%= currentPage - 1 %>"><</a>
+    <%
+        }
+
+        // 페이지 번호 버튼 (1, 2, 3, ...)
+        for (int i = 1; i <= totalPages; i++) {
+            if (i == currentPage) {
+    %>
+            <a href="myCoupon.jsp?page=<%= i %>" class="active"><%= i %></a>
+    <%
+            } else {
+    %>
+            <a href="myCoupon.jsp?page=<%= i %>"><%= i %></a>
+    <%
+            }
+        }
+
+        // 다음 페이지 버튼
+        if (currentPage < totalPages) {
+    %>
+        <a href="myCoupon.jsp?page=<%= currentPage + 1 %>">></a>
+    <%
+        }
+    %>
+    </div>
+
+
+</center>
+
+	<footer class="footer">
+    <div class="footer-left">
+        <span class="brand-name">succubuddy</span>
+    </div>
+    <div class="footer-right">
+	<br>
+        <span>주소 : 충청남도 천안시 서북구 성환읍 대학로 91 | EMAIL : succubuddy@naver.com</span>
+        <span>TEL : 070-022-2026 | &copy; 2025 succubuddy. All Rights Reserved.</span>
+		<br>
+        <span><a href="#">개인정보처리방침</a> | <a href="#">이용약관</a></span>
+    </div>
+</footer>
+</body>
+</html>

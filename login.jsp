@@ -1,0 +1,320 @@
+<%@ page contentType="text/html;charset=euc-kr" %>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+
+    <style>
+		a {
+			text-decoration: none;
+			color: #fff;
+		}
+        @font-face {
+            font-family: 'GmarketSansTTFMedium';
+            src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'GmarketSansTTFBold';
+            src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'GmarketSansTTFLight';
+            src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+        }
+		@font-face {
+			font-family: 'RixInooAriDuriPro';  /* 폰트 이름 지정 */
+			src: url('fonts/RixInooAriDuri_Pro Regular.otf')  format('opentype'); /* OTF 파일은 'opentype' 지정 */
+			font-weight: normal;
+			font-style: normal;
+		}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            height: 1080px;
+            width: 1920px;
+            overflow-x: hidden;
+        }
+
+         .navbar {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 82px 150px;
+			width: 1920px;
+			margin: 0 auto;
+			margin-bottom: 20px; /* 네비게이션 아래 여백 추가 */
+		}
+
+		.logo {
+			display: block;
+			width: 300px;
+			height: 56px;
+			margin-left: -30px;
+			margin-right: 20px;
+		}
+
+		.nav-menu {
+			display: flex;
+			align-items: center;
+			gap: 80px;
+		}
+
+		.nav-menu a {
+			text-decoration: none;
+			color: black;
+			font-size: 26px;
+			font-weight: 550;
+			font-family: 'GmarketSansTTFMedium';
+			margin-top: 12px;
+		}
+
+		.nav-icons {
+			display: flex;
+			align-items: center;
+			gap: 35px; /* 아이콘 및 로그인 간격 */
+			margin-top: 10px; /* 아이콘과 로그인 위치 조정 */
+			margin-left: 33px;
+		}
+
+		/* 아이콘 크기 조정 */
+		.nav-icons img {
+			width: 40px;
+			height: 40px;
+		}
+
+		/* 로그아웃 링크 스타일 */
+		.nav-login {
+			text-decoration: none;
+			font-size: 24px;
+			font-family: 'GmarketSansTTFMedium';
+			color: black;
+			margin-top:10px;
+		}
+
+        p {
+            font-family: 'GmarketSansTTFLight';
+        }
+
+        h2 {
+            font-family: 'GmarketSansTTFMedium';
+        }
+
+       .footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 1920px;
+            height: 283px;
+            padding: 0 150px; /* 왼쪽과 오른쪽 패딩 조정 */
+            background-color: #60af46;
+			margin-top: 150px;
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .footer-left {
+            font-size: 50px;
+            font-family: 'RixInooAriDuriPro'; /* Medium font 적용 */
+            margin-left: 50px;
+			color: #ffffff;
+        }
+
+        .footer-right {
+            font-size: 18px;
+            color: #ffffff;
+            margin-left: 130px;
+            font-family: 'GmarketSansTTFLight'; /* Light font 적용 */
+        }
+
+        .footer-right span {
+            margin-bottom: 10px;
+        }
+
+        .footer-right a {
+            text-decoration: none;
+            color: #ffffff;
+        }
+        /* 로그인 */
+        /* 로그인 폼 컨테이너 조정 */
+		.content {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			height: 55vh;
+			margin-left: -100px; /* 왼쪽으로 이동 */
+		}
+
+		.login-container {
+			max-width: 600px;
+			background-color: #fff;
+			padding: 40px;
+			border-radius: 8px;
+			text-align: center;
+		}
+        .login-title {
+            font-size: 34px;
+            text-align: center;
+            margin-bottom: 68px;
+			margin-left: -45px;
+        }
+
+        .input-group input {
+            width: 566px;
+            height: 61px;
+            padding: 30px;
+            font-size: 24px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            margin-top: 30px;
+            margin-bottom: 10px;
+			margin-left: -45px;
+        }
+
+        .btn-login {
+            width: 566px;
+            height: 61px;
+            padding: 15px;
+            background-color: #7ab863;
+            color: white;
+            font-size: 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 61px;
+            margin-bottom: 20px;
+			margin-left: -45px;
+        }
+
+        .btn-login:hover {
+            background-color: #5a9b47;
+        }
+
+        /* 로그인 버튼 아래의 링크들 */
+        .login-links {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 22px;
+            margin-left: 30px;
+            font-family: 'GmarketSansTTFLight';
+			margin-left: -45px;
+        }
+
+        .login-links a {
+            text-decoration: none;
+            color: black;
+            margin: 0 20px; /* 간격을 더 넓힘 */
+
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="navbar">
+		<a href="main.html">
+		<img src="images/logo.png" alt="SuccuBuddy Logo" class="logo">
+		</a>
+		<nav class="nav-menu">
+			<a href="sub1.jsp">다육 세트</a>
+			<a href="sub2.jsp">다육 단품</a>
+			<a href="sub3.jsp">맞춤 다육 추천</a>
+			<a href="sub4.jsp">다육 탐구 생활</a>
+			<a href="sub5.jsp">고객센터</a>
+		</nav>
+		<div class="nav-icons">
+			<a href="mypage.jsp"><img src="images/Person.png" alt="사용자"></a>
+			<a href="shopping_list.jsp"><img src="images/cart.png" alt="장바구니"></a>
+			<a href="login.jsp"><img src="images/login.png" alt="로그인"></a>  
+		</div>
+	</header>
+
+
+    <!-- 로그인 폼 영역 -->
+    <div class="content">
+        <div class="login-container">
+            <h2 class="login-title">로그인</h2>
+            <form name="login" action="loginOk.jsp" method="post">
+                <div class="input-group">
+                    <input type="text" name="id" placeholder="아이디" required>
+                </div>
+                <div class="input-group">
+                    <input type="password" name="pass" placeholder="비밀번호" onkeydown="onEnterSubmit()" required>
+                </div>
+                <button type="submit" class="btn-login"><a href="javascript:login_check()">로그인</a></button>
+            </form>
+
+            <!-- 아이디 찾기, 비밀번호 찾기, 회원가입 -->
+            <div class="login-links">
+                <a href="id_find.jsp">아이디 찾기</a> | 
+                <a href="pwd_find.jsp">비밀번호 찾기</a> | 
+                <a href="join.jsp">회원가입</a>
+            </div>
+        </div>
+    </div>
+<script>
+	function login_check()
+{
+	if(document.login.id.value=="")
+	{
+    	alert("아이디를 입력해 주세요.");
+    	document.login.id.focus();
+    	return;	
+    }
+
+    if(document.login.pass.value=="")
+	{
+    	alert("비밀번호를 입력해 주세요.");
+    	document.login.pass.focus();			
+    	return;
+    }
+		
+    document.login.submit();
+}
+
+
+
+function onEnterSubmit()
+{
+  	var keyCode = window.event.keyCode;
+   	if(keyCode==13)  login.submit();
+}
+	
+
+function login_focus()
+{
+   	document.login.id.focus();
+   	return;
+}
+</script>
+
+    <!-- 푸터 -->
+    <footer class="footer">
+        <div class="footer-left">
+            <span class="brand-name">succubuddy</span>
+        </div>
+        <div class="footer-right">
+            <br>
+            <span>주소 : 충청남도 천안시 서북구 성환읍 대학로 91 | EMAIL : succubuddy@naver.com</span>
+            <span>TEL : 070-022-2026 | &copy; 2025 succubuddy. All Rights Reserved.</span>
+            <br>
+            <span><a href="#">개인정보처리방침</a> | <a href="#">이용약관</a></span>
+        </div>
+    </footer>
+
+</body>
+</html>

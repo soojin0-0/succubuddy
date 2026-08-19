@@ -1,0 +1,791 @@
+<%@ page contentType="text/html;charset=euc-kr" %>
+<%@ page import="java.sql.*, java.util.Calendar" %>
+<%@ page import="java.sql.*, java.util.*, java.text.*" %>
+<%
+    String sid = (String) session.getAttribute("sid");
+    if (sid == null) {
+        response.sendRedirect("login.jsp");
+        return;
+    }
+
+    String range = request.getParameter("range");
+    String sy = request.getParameter("sy");
+    String sm = request.getParameter("sm");
+    String ey = request.getParameter("ey");
+    String em = request.getParameter("em");
+	String sh = request.getParameter("sh");
+    String eh = request.getParameter("eh");
+
+    int 주문접수 = 0, 결제완료 = 0, 배송준비중 = 0, 배송중 = 0, 배송완료 = 0;
+
+     String dateCondition = "";
+    if (range != null && !range.equals("")) {
+        dateCondition = "AND o.order_date >= DATE_SUB(NOW(), INTERVAL " + range + " MONTH) ";
+    } else if (sy != null && sm != null && ey != null && em != null) {
+        if (sh == null || sh.equals("")) sh = "00";
+        if (eh == null || eh.equals("")) eh = "23";
+        // 마지막 일 구하기
+		Calendar cal = Calendar.getInstance();
+		cal.set(Integer.parseInt(ey), Integer.parseInt(em), 1); // 다음 달 1일
+		cal.add(Calendar.MONTH, 1);
+		cal.add(Calendar.DATE, -1); // 이번 달 마지막 날
+		int lastDay = cal.get(Calendar.DAY_OF_MONTH);
+
+		// 날짜 조건 설정
+		dateCondition = "AND o.order_date BETWEEN '" + sy + "-" + sm + "-01 " + sh + ":00:00' AND '" + ey + "-" + em + "-" + lastDay + " " + eh + ":59:59' ";
+    }
+
+
+	
+    String currentYear = String.valueOf(Calendar.getInstance().get(Calendar.YEAR));
+    String currentMonth = String.valueOf(Calendar.getInstance().get(Calendar.MONTH) + 1);
+
+    if (sy == null || sy.equals("")) sy = currentYear;
+    if (ey == null || ey.equals("")) ey = currentYear;
+    if (sm == null || sm.equals("")) sm = currentMonth;
+    if (em == null || em.equals("")) em = "12";
+	if (sh == null || sh.equals("")) sh = "00";
+	if (eh == null || eh.equals("")) eh = "23";
+
+
+    int pageSize = 5;
+    int pageNum = request.getParameter("page") == null ? 1 : Integer.parseInt(request.getParameter("page"));
+    int offset = (pageNum - 1) * pageSize;
+
+    int totalCount = 0;
+    int totalPages = 0;
+
+    List<Map<String, String>> orderList = new ArrayList<>();
+
+    Connection conn = null;
+    PreparedStatement pstmt = null;
+    ResultSet rs = null;
+
+    try {
+        Class.forName("org.gjt.mm.mysql.Driver");
+        String url = "jdbc:mysql://localhost:3306/succu";
+        conn = DriverManager.getConnection(url, "multi", "abcd");
+
+        // 주문 상태 카운트
+        String statusSql = "SELECT REPLACE(od.status, ' ', '') AS status, COUNT(*) AS cnt " +
+                   "FROM order_detail od " +
+                   "JOIN orders o ON od.order_id = o.order_id " +
+                   "WHERE o.user_id = ? " + dateCondition +
+                   "GROUP BY status";
+
+        pstmt = conn.prepareStatement(statusSql);
+        pstmt.setString(1, sid);
+        rs = pstmt.executeQuery();
+        while (rs.next()) {
+            String status = rs.getString("status").replace(" ", ""); // 공백 제거
+			int count = rs.getInt("cnt"); //  여기에 선언 누락된 것 추가
+
+			switch (status) {
+				case "주문접수": 주문접수 = count; break;
+				case "결제완료": 결제완료 = count; break;
+				case "배송준비중": 배송준비중 = count; break;
+				case "배송중": 배송중 = count; break;
+				case "배송완료": 배송완료 = count; break;
+			}
+
+
+        }
+        rs.close();
+        pstmt.close();
+
+		//상품 조회
+		String sql = "SELECT od.*, od.status AS detail_status, o.order_date, p.name " +
+             "FROM order_detail od " +
+             "JOIN orders o ON od.order_id = o.order_id " +
+             "JOIN product p ON od.product_id = p.product_id " +
+             "WHERE o.user_id = ? " + dateCondition +
+             "ORDER BY o.order_date DESC LIMIT ? OFFSET ?";
+
+			pstmt = conn.prepareStatement(sql);
+			pstmt.setString(1, sid);
+			pstmt.setInt(2, pageSize);
+			pstmt.setInt(3, offset);
+			rs = pstmt.executeQuery();
+
+			while (rs.next()) {
+				Map<String, String> map = new HashMap<>();
+				Timestamp ts = rs.getTimestamp("order_date");
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd");
+				String formattedDate = sdf.format(ts);
+
+				String status = rs.getString("detail_status");  // order_detail 테이블 기준
+				if ("주문접수".equals(status)) status = "주문접수";
+				else if ("결제완료".equals(status)) status = "결제완료";
+				else if ("배송준비중".equals(status)) status = "배송준비중";
+				else if ("배송중".equals(status)) status = "배송중";
+				else if ("배송완료".equals(status)) status = "배송완료";
+
+
+				map.put("date", formattedDate);
+				map.put("product_id", rs.getString("product_id"));
+				map.put("product_name", rs.getString("name"));
+				map.put("quantity", rs.getString("quantity"));
+				map.put("amount", rs.getString("subtotal"));
+				map.put("pot_name", rs.getString("pot_name"));
+				map.put("pot_price", rs.getString("pot_price"));
+				map.put("status", rs.getString("detail_status"));  // 꼭 있어야 함
+				orderList.add(map);
+			}
+
+			// 전체 개수 먼저 조회
+			String countSql = "SELECT COUNT(*) FROM order_detail od " +
+							  "JOIN orders o ON od.order_id = o.order_id " +
+							  "WHERE o.user_id = ? " + dateCondition;
+			pstmt = conn.prepareStatement(countSql);
+			pstmt.setString(1, sid);
+			rs = pstmt.executeQuery();
+			if (rs.next()) {
+				totalCount = rs.getInt(1);
+			}
+			rs.close();
+			pstmt.close();
+			totalPages = (int) Math.ceil((double) totalCount / pageSize);
+
+    
+
+    } catch (Exception e) {
+        e.printStackTrace();
+    } finally {
+        if (rs != null) try { rs.close(); } catch(Exception e) {}
+        if (pstmt != null) try { pstmt.close(); } catch(Exception e) {}
+        if (conn != null) try { conn.close(); } catch(Exception e) {}
+    }
+%>
+
+<html>
+<head>
+	<title>주문/배송조회</title>
+<style>
+		@font-face {
+            font-family: 'GmarketSansTTFMedium';
+            src: url('fonts/GmarketSansTTFMedium.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFBold';
+            src: url('fonts/GmarketSansTTFBold.ttf') format('truetype');
+        }
+        
+        @font-face {
+            font-family: 'GmarketSansTTFLight';
+            src: url('fonts/GmarketSansTTFLight.ttf') format('truetype');
+        }
+		@font-face {
+			font-family: 'RixInooAriDuriPro';  /* 폰트 이름 지정 */
+			src: url('fonts/RixInooAriDuri_Pro Regular.otf')  format('opentype'); /* OTF 파일은 'opentype' 지정 */
+			font-weight: normal;
+			font-style: normal;
+		}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+		body {
+			width: 1920px;
+			max-width: 100%;
+			overflow-x: hidden;
+		}
+
+		.tracking-wrapper {
+			width: 1400px;
+			margin: 100px auto 0 auto;
+			text-align: center;
+		}
+
+		.tracking-title {
+			font-size: 34px;
+			text-align: left;
+			padding-left: 15px;
+			margin-bottom: 34px; /* 선과 타이틀 간격 */
+			font-family: 'GmarketSansTTFMedium';
+		}
+
+		.tracking-line {
+			border-top: 1px solid black;
+			width: 1400px;
+			margin: 0 auto 56px auto; /* 아래 여백만 */
+		}
+
+		.tracking-status {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			font-size: 16px;
+			gap: 54px; /* 숫자와 화살표 간격 */
+		}
+
+		.status-box {
+			text-align: center;
+		}
+
+		.status-count {
+			font-size: 60px;
+			font-family: 'GmarketSansTTFMedium';
+		}
+
+	   .status-count.green {
+			color: #7ab863;
+		}
+		.arrow {
+			font-size: 30px;
+		}
+
+		.status-label {
+			font-size: 18px;
+			margin-top: 5px;
+			font-family: 'GmarketSansTTFLight';
+		}
+		/*조회 디자인*/
+		.period-wrapper {
+			width: 1400px;
+			height: 253px;
+			margin: 97px auto 0 auto;
+			border: 2px solid #e0e0e0;
+			border-radius: 6px;
+			display: flex;
+			background-color: #fff;
+			overflow: hidden;
+
+		}
+
+		.period-form-content {
+			flex: 1;
+			padding: 25px;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			gap: 20px;
+		}
+
+		.period-form {
+			display: flex;
+			flex-direction: column;
+			gap: 20px;
+			margin-left: 87px;
+		}
+
+		.period-options {
+			display: flex;
+			gap: 30px;
+		}
+
+		.period-btn {
+			width: 144px;
+			height: 41px;
+			font-size: 22px;
+			padding: 0;
+			border: none;
+			border-radius: 4px;
+			background-color: #f3f3f3;
+			color: #555;
+			cursor: pointer;
+			font-family: 'GmarketSansTTFMedium';
+			text-align: center;
+			line-height: 50px;
+			margin-bottom: 53px; 
+		}
+
+		.period-btn.active {
+			background-color: #7ab863;
+			color: #fff;
+		}
+
+		.period-range {
+			display: flex;
+			align-items: center;
+			gap: 32px;
+		}
+
+		.period-range select {
+			width: 154px;
+			height: 41px;
+			background-color: #f3f3f3;
+			border: none;
+			border-radius: 6px;
+			padding: 0 12px;
+			font-size: 22px;
+			color: #333;
+			cursor: pointer;
+
+			/* 화살표 커스텀 */
+			appearance: none;
+			-webkit-appearance: none;
+			-moz-appearance: none;
+			background-image: url('images/arrow-big.png');  /* 큰 화살표 아이콘 */
+			background-repeat: no-repeat;
+			background-position: right 10px center;
+			background-size: 20px 10px;  /*  이 부분으로 화살표 크기 조절 */
+		}
+
+		.period-range span {
+			font-size: 22px;
+			color: #333;
+			font-family: 'GmarketSansTTFMedium';
+			margin-left: -25px;
+		}
+		.date-divider {
+			width: 32px;
+			height: 2px;
+			background-color: #333;
+			margin: 0 8px;
+			align-self: center;
+		}
+
+		.period-search-btn {
+			width: 197px;
+			height: 253px;
+			background-color: #7ab863;
+			color: white;
+			border: none;
+			font-size: 34px;
+			cursor: pointer;
+			border-radius: 0;
+			font-family: 'GmarketSansTTFMedium';
+		}
+
+		/*주문 상태*/
+		.order-container {
+		  width: 1400px;
+		  margin: 80px auto 0 auto;
+		}
+
+		.order-row {
+		  display: flex;
+		  align-items: center;
+		  padding: 55px 0;
+		  border-top: 1px solid #000;
+		  font-size: 18px;
+		}
+
+		.order-cell {
+		  display: flex;
+		  align-items: center;
+		  justify-content: center;
+		  height: 180px;
+		  font-size: 18px;
+		  color: #222;
+		  position: relative;
+		  font-family: 'GmarketSansTTFMedium';
+		}
+
+		.divider {
+		  width: 1px;
+		  height: 100%;
+		  background-color: #ccc;
+		  position: absolute;
+		  left: 0;
+		  top: 0;
+		}
+
+		.order-date {
+		  width: 200px;
+		  text-align: center;
+		  font-size: 18p;x
+		}
+
+		.order-product {
+		   width: 730px; /* 기존 700px → 더 넓힘 */
+		  display: flex;
+		  align-items: center;
+		  gap: 20px;
+		  justify-content: flex-start;
+		  position: relative;
+		  padding-left: 77px; /* 이미지 왼쪽 여백 */
+		}
+		.product-img {
+		  width: 180px;
+		  height: 180px;
+		  object-fit: cover;
+		}
+
+		.product-name {
+		  display: flex;              /*  추가 */
+		  flex-direction: column;     /*  세로 정렬 */
+		  align-items: flex-start;    /* 왼쪽 정렬 */
+		  font-size: 30px;
+		  color: #555;
+		  font-family: 'GmarketSansTTFLight';
+		  padding-left: 20px;
+		}
+
+
+		.order-qty {
+		  width: 130px;
+		  justify-content: center;
+		}
+
+		.order-price {
+		   width: 180px; /* 금액 칸 넓힘 */
+		  justify-content: center;
+		}
+
+		.order-status {
+		  width: 160px;
+		  justify-content: center;
+		}
+
+		.order-price-value {
+		  color: #7ab863;
+		  font-weight: 500;
+		  font-size: 16px;
+		}
+
+		.order-status-value {
+		  color: #222;
+		  font-size: 16px;
+		}
+
+		.order-header {
+		  display: flex;
+		  padding-bottom: 15px;
+		  border-bottom: 1px solid #000;
+		  font-family: 'GmarketSansTTFMedium';
+		  font-size: 24px;
+		}
+
+		.order-header > div {
+		  text-align: center;
+		}
+		.order-header .order-date { width: 210px; }
+		.order-header .order-product { width: 720px; text-align: left; padding-left: 250px; }
+		.order-header .order-qty { width: 130px; }
+		.order-header .order-price { width: 180px; }
+		.order-header .order-status { width: 160px; }
+
+		.order-qty-value { font-size: 22px; font-family: 'GmarketSansTTFLight'; }
+		.order-price-value { font-size: 22px; font-family: 'GmarketSansTTFLight'; }
+		.order-status-value { font-size: 22px; font-family: 'GmarketSansTTFLight'; }
+		
+		.order-bottom-line {
+		  width: 100%;
+		  border-top: 1px solid #333;
+		  margin-top: 20px;
+		}
+
+		.pagination {
+		  text-align: center;
+		  margin-top: 30px;
+		}
+
+		.pagination a,
+		.pagination span {
+		  margin: 0 6px;
+		  text-decoration: none;
+		  font-size: 24px;
+		  color: #333;
+		  font-family: 'GmarketSansTTFLight';
+		}
+
+		.pagination .current-page {
+		  font-family: 'GmarketSansTTFMedium';
+		  font-size: 28px;     /* 약간 키운 글씨 크기 */
+		  color: #000;
+		  padding: 2px 6px;    /* 주변 여백 */
+		}
+		  .navbar {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 82px 150px;
+			width: 1920px;
+			margin: 0 auto;
+			margin-bottom: 20px; /* 네비게이션 아래 여백 추가 */
+		}
+
+		.logo {
+			display: block;
+			width: 300px;
+			height: 56px;
+			margin-left: -30px;
+			margin-right: 20px;
+		}
+
+		.nav-menu {
+			display: flex;
+			align-items: center;
+			gap: 63px;
+		}
+
+		.nav-menu a {
+			text-decoration: none;
+			color: black;
+			font-size: 26px;
+			font-weight: 550;
+			font-family: 'GmarketSansTTFMedium';
+			margin-top: 12px;
+		}
+
+		.nav-icons {
+			display: flex;
+			align-items: center;
+			gap: 35px; /* 아이콘 및 로그인 간격 */
+			margin-top: 10px; /* 아이콘과 로그인 위치 조정 */
+			margin-left: 33px;
+		}
+
+		/* 아이콘 크기 조정 */
+		.nav-icons img {
+			width: 40px;
+			height: 40px;
+		}
+
+		/* 로그아웃 링크 스타일 */
+		.nav-login {
+			text-decoration: none;
+			font-size: 24px;
+			font-family: 'GmarketSansTTFMedium';
+			color: black;
+			margin-top:10px;
+		}
+		.footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 1920px;
+            height: 283px;
+            padding: 0 150px; /* 왼쪽과 오른쪽 패딩 조정 */
+            background-color: #60af46;
+			margin-top: 260px;
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .footer-left {
+            font-size: 45px;
+            font-family: 'RixInooAriDuriPro'; /* Medium font 적용 */
+            margin-left: 35px;
+			color: #ffffff;
+        }
+
+        .footer-right {
+            font-size: 16px;
+            color: #ffffff;
+            margin-left: 177px;
+            font-family: 'GmarketSansTTFLight'; /* Light font 적용 */
+        }
+
+        .footer-right span {
+            margin-bottom: 10px;
+        }
+
+        .footer-right a {
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+		.pot-name {
+		  font-size: 20px;
+		  color: #999;
+		  margin-top: 8px; /* 약간 간격 */
+		  font-family: 'GmarketSansTTFLight'; /* Light font 적용 */
+		}
+
+</style>
+</head>
+<script>
+function submitRange(month) {
+    const currentUrl = new URL(window.location.href);
+    const currentRange = currentUrl.searchParams.get("range");
+
+    // 같은 버튼을 다시 누른 경우 → range 제거
+    if (currentRange === String(month)) {
+        currentUrl.searchParams.delete("range");
+    } else {
+        currentUrl.searchParams.set("range", month);
+    }
+
+    // 드롭다운 값이 있으면 같이 유지
+    ["sy", "sm", "ey", "em"].forEach(param => {
+        const el = document.querySelector(`select[name="${param}"]`);
+        if (el) currentUrl.searchParams.set(param, el.value);
+    });
+
+    window.location.href = currentUrl.toString();
+}
+</script>
+<body>
+	<header class="navbar">
+		<a href="main.jsp">
+		<img src="images/logo.png" alt="SuccuBuddy Logo" class="logo">
+		</a>
+		<nav class="nav-menu">
+			<a href="sub1.jsp">다육 세트</a>
+			<a href="sub2.jsp">다육 단품</a>
+			<a href="sub3.jsp">맞춤 다육 추천</a>
+			<a href="sub4.jsp">다육 탐구 생활</a>
+			<a href="sub5.jsp">고객센터</a>
+		</nav>
+		<div class="nav-icons">
+			<a href="mypage.jsp"><img src="images/Person.png" alt="사용자"></a>
+			<a href="shopping_list.jsp"><img src="images/cart.png" alt="장바구니"></a>
+			<a href="logout.jsp"><img src="images/logout.png" alt="로그아웃"></a> 
+		</div>
+	</header>
+
+
+    <div class="tracking-wrapper">
+        <div class="tracking-title">주문/배송 조회</div>
+        <div class="tracking-line"></div>
+        <div class="tracking-status">
+            <div class="status-box">
+                <div class="status-count <%= 주문접수 > 0 ? "green" : "" %>"><%= 주문접수 %></div>
+                <div class="status-label">주문접수</div>
+            </div>
+            <div class="arrow">&gt;</div>
+            <div class="status-box">
+                <div class="status-count <%= 결제완료 > 0 ? "green" : "" %>"><%= 결제완료 %></div>
+                <div class="status-label">결제완료</div>
+            </div>
+            <div class="arrow">&gt;</div>
+            <div class="status-box">
+                <div class="status-count <%= 배송준비중 > 0 ? "green" : "" %>"><%= 배송준비중 %></div>
+                <div class="status-label">배송준비중</div>
+            </div>
+            <div class="arrow">&gt;</div>
+            <div class="status-box">
+                <div class="status-count <%= 배송중 > 0 ? "green" : "" %>"><%= 배송중 %></div>
+                <div class="status-label">배송중</div>
+            </div>
+            <div class="arrow">&gt;</div>
+            <div class="status-box">
+                <div class="status-count <%= 배송완료 > 0 ? "green" : "" %>"><%= 배송완료 %></div>
+                <div class="status-label">배송완료</div>
+            </div>
+        </div>
+		<div class="period-wrapper">
+			 <!-- 왼쪽: 기간 버튼 + 날짜 선택 -->
+			 <div class="period-form-content">
+			 <form method="get" class="period-form">
+				<div class="period-options">
+					<button type="button" onclick="submitRange(1)" class="period-btn <%= "1".equals(range) ? "active" : "" %>">1개월</button>
+					<button type="button" onclick="submitRange(3)" class="period-btn <%= "3".equals(range) ? "active" : "" %>">3개월</button>
+					<button type="button" onclick="submitRange(6)" class="period-btn <%= "6".equals(range) ? "active" : "" %>">6개월</button>
+					<button type="button" onclick="submitRange(12)" class="period-btn <%= "12".equals(range) ? "active" : "" %>">12개월</button>
+				</div>
+
+				<div class="period-range">
+				 <!-- select들 -->
+					<select name="sy">
+						<% for (int y = 2020; y <= Calendar.getInstance().get(Calendar.YEAR); y++) { %>
+							<option value="<%= y %>" <%= ("" + y).equals(sy) ? "selected" : "" %>><%= y %></option>
+						<% } %>
+					</select>
+					<span>년</span>
+					<select name="sm">
+						<% for (int m = 1; m <= 12; m++) { %>
+							<option value="<%= m %>" <%= ("" + m).equals(sm) ? "selected" : "" %>><%= m %></option>
+						<% } %>
+					</select>
+					<span>월</span>
+
+					<div class="date-divider"></div> <!-- 여기 선 들어감 -->
+
+					<select name="ey">
+						<% for (int y = 2020; y <= Calendar.getInstance().get(Calendar.YEAR); y++) { %>
+							<option value="<%= y %>" <%= ("" + y).equals(ey) ? "selected" : "" %>><%= y %></option>
+						<% } %>
+					</select>
+					<span>년</span>
+					<select name="em">
+						<% for (int m = 1; m <= 12; m++) { %>
+							<option value="<%= m %>" <%= ("" + m).equals(em) ? "selected" : "" %>><%= m %></option>
+						<% } %>
+					</select>
+					<span>월</span>
+				</div>
+				</form>
+			  </div>
+			 <!-- 오른쪽: 조회 버튼 -->
+			  <form method="get">
+				<button type="submit" class="period-search-btn">조회</button>
+			  </form>
+		</div>
+	<div class="order-container">
+	  <div class="order-header">
+		<div class="order-date">일자</div>
+		<div class="order-product">상품</div>
+		<div class="order-qty">수량</div>
+		<div class="order-price">금액</div>
+		<div class="order-status">상태</div>
+	  </div>
+
+	  <% for (Map<String, String> order : orderList) { %>
+	  <div class="order-row">
+		 <div class="order-cell order-date"><%= order.get("date") %></div>
+
+		<div class="order-cell order-product">
+		  <div class="divider"></div>
+		   <img src="images/<%= order.get("product_id") %>.jpg" alt="상품 이미지" class="product-img">
+		   <div class="product-name">
+			  <div><%= order.get("product_name") %></div>
+			  <% if (order.get("pot_name") != null) { %>
+				<div class="pot-name">화분| <%= order.get("pot_name") %></div>
+			  <% } %>
+			</div>
+
+
+		</div>
+
+		<div class="order-cell order-qty">
+		  <div class="divider"></div>
+		  <div class="order-qty-value"><%= order.get("quantity") %></div>
+		</div>
+
+		<div class="order-cell order-price">
+		  <div class="divider"></div>
+		  <div class="order-price-value"><%= String.format("%,d원", Integer.parseInt(order.get("amount"))) %></div>
+		</div>
+
+		<div class="order-cell order-status">
+		  <div class="divider"></div>
+		  <div class="order-status-value"><%= order.get("status") %></div>
+		</div>
+	  </div>
+	  <% } %>
+		<div class="order-bottom-line"></div>
+	</div>
+	<!-- 페이징 영역 -->
+	<div class="pagination">
+	  <% if (pageNum > 1) { %>
+		<a href="?page=<%= pageNum - 1 %>">&lt; </a>
+	  <% } %>
+
+	  <% for (int i = 1; i <= totalPages; i++) { %>
+		<% if (i == pageNum) { %>
+		  <span class="current-page"><%= i %></span>
+		<% } else { %>
+		  <a href="?page=<%= i %>"><%= i %></a>
+		<% } %>
+	  <% } %>
+
+	  <% if (pageNum < totalPages) { %>
+		<a href="?page=<%= pageNum + 1 %>"> &gt;</a>
+	  <% } %>
+	</div>
+    </div>
+	<footer class="footer">
+		<div class="footer-left">
+			<span class="brand-name">succubuddy</span>
+		</div>
+		<div class="footer-right">
+		<br>
+			<span>주소 : 충청남도 천안시 서북구 성환읍 대학로 91 | EMAIL : succubuddy@naver.com</span>
+			<span>TEL : 070-022-2026 | &copy; 2025 succubuddy. All Rights Reserved.</span>
+			<br>
+			<span><a href="footer_policy.jsp">개인정보처리방침</a> | <a href="footer_terms.jsp">이용약관</a></span>
+		</div>
+	</footer>
+
+</body>
+</html>
