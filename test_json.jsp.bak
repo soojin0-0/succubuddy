@@ -1,8 +1,0 @@
-<%@ page import="org.json.simple.parser.JSONParser" %>
-<%@ page import="org.json.simple.JSONObject" %>
-<%
-    JSONParser parser = new JSONParser();
-    String jsonStr = "{\"name\":\"테스트\"}";
-    JSONObject obj = (JSONObject) parser.parse(jsonStr);
-    out.println("이름: " + obj.get("name"));
-%>

@@ -1,5 +1,0 @@
-<%@ page contentType="text/html; charset=euc-kr" pageEncoding="euc-kr" %>
-<%
-    // POST 방식으로 받은 값 그대로 유지해서 forward
-    request.getRequestDispatcher("shopping_order&payment.jsp").forward(request, response);
-%>
